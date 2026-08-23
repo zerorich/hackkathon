@@ -9,12 +9,13 @@ from sqlalchemy import func, select
 
 from server.ai.fixtures import get_fixture
 from server.ai.validator import validate_ai_challenge_output
-from server.core.enums import AttemptStatus
+from server.core.enums import AttemptStatus, ChallengeStatus
 from server.core.security import verify_password
 from server.core.settings import clear_settings_cache
 from server.models.entities import (
     ActivityEvent,
     Attempt,
+    Challenge,
     SchoolClass,
     StudentStats,
     Subject,
@@ -122,6 +123,16 @@ async def test_demo_seed_populates_presentation_dataset(session_factory, client:
     # The seed is safe to run again and must not duplicate presentation attempts.
     async with session_factory() as session:
         before = int(await session.scalar(select(func.count()).select_from(Attempt)) or 0)
+        fractions = await session.scalar(select(Topic).where(Topic.title == "Fractions"))
+        session.add(
+            Challenge(
+                topic_id=fractions.id,
+                title="Existing extra ready challenge",
+                status=ChallengeStatus.READY,
+                question_count=5,
+            )
+        )
+        await session.commit()
         await run_seed(session)
         await session.commit()
         after = int(await session.scalar(select(func.count()).select_from(Attempt)) or 0)

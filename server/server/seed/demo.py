@@ -539,7 +539,7 @@ async def _create_ready_challenge_from_fixture(
             Challenge.topic_id == topic.id,
             Challenge.status == ChallengeStatus.READY,
             Challenge.title == fixture["title"],
-        )
+        ).order_by(Challenge.created_at.asc(), Challenge.id.asc()).limit(1)
     )
     existing = result.scalar_one_or_none()
     if existing:
@@ -686,31 +686,10 @@ async def _add_questions_from_fixture(
 async def _get_or_create_ready_challenge(
     session: AsyncSession, topic: Topic, teacher_id: str, *, subject_name: str, topic_name: str
 ) -> Challenge:
-    result = await session.execute(
-        select(Challenge).where(
-            Challenge.topic_id == topic.id,
-            Challenge.status == ChallengeStatus.READY,
-        )
+    return await _create_ready_challenge_from_fixture(
+        session,
+        topic=topic,
+        teacher_id=teacher_id,
+        subject_name=subject_name,
+        topic_name=topic_name,
     )
-    challenge = result.scalar_one_or_none()
-    if challenge:
-        return challenge
-
-    fixture = validate_ai_challenge_output(
-        get_fixture(subject_name=subject_name, topic_name=topic_name, question_count=5),
-        expected_count=5,
-    )
-    challenge = Challenge(
-        topic_id=topic.id,
-        created_by_id=teacher_id,
-        origin=ChallengeOrigin.SYSTEM,
-        type=ChallengeType.AI_PRACTICE,
-        title=fixture["title"],
-        status=ChallengeStatus.READY,
-        question_count=len(fixture["questions"]),
-        published_at=utcnow(),
-    )
-    session.add(challenge)
-    await session.flush()
-    await _add_questions_from_fixture(session, challenge, fixture)
-    return challenge
