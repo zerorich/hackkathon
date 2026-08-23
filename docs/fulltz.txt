@@ -1,0 +1,3439 @@
+import pypandoc, textwrap, os
+
+content = r"""
+# Техническое задание: Maktab AI Arena
+## AI-платформа для школьных учебных челленджей, соревнований и персонального обучения
+
+**Формат проекта:** Hackathon MVP  
+**Команда:** 4 человека  
+**Основная аудитория:** школьники и преподаватели  
+**Главная идея:** AI не является отдельным «чатом». Он генерирует и адаптирует учебные активности, а ядро продукта — короткие соревновательные челленджи, дуэли между учениками, рейтинги, streak, XP и аналитика преподавателя.
+
+---
+
+# 0. КРАТКОЕ ОПИСАНИЕ РЕШЕНИЯ
+
+Рабочее название проекта — **Maktab AI Arena**.
+
+Это школьная AI-платформа, превращающая обучение и повторение материала в короткие персонализированные соревнования. Ученик выбирает предмет и тему, получает созданный AI мини-челлендж, проходит его, получает XP, поддерживает streak, поднимается в рейтинге класса и может вызвать одноклассника на дуэль по той же теме.
+
+Преподаватель работает через отдельную React-панель: создаёт классы, управляет учениками, задаёт темы и активности, запускает соревнования, видит слабые темы класса, результаты учеников, активность, leaderboard и агрегированную статистику.
+
+Главное отличие от обычного AI tutor: пользователь не сидит в бесконечном чате. AI встроен внутрь конкретной игровой механики и превращает школьный материал в активности, которые можно пройти самому или отправить другу.
+
+Главный live-demo:
+**учитель создаёт тему/челлендж → ученик проходит → вызывает друга → второй ученик проходит → сервер определяет победителя → рейтинг и XP обновляются → преподаватель сразу видит результаты и аналитику.**
+
+---
+
+# 1. СУТЬ ПРОЕКТА
+
+Maktab AI Arena решает проблему низкой вовлечённости школьников в самостоятельное повторение учебного материала. Вместо обычного AI-чата система превращает темы школьной программы в короткие интерактивные задания и соревнования.
+
+Ученик получает персонализированные AI-челленджи, зарабатывает XP, поддерживает серию активности, соревнуется с одноклассниками и видит собственный прогресс. Преподаватель получает инструмент для управления классом и просмотра реального уровня усвоения тем.
+
+Вирусность продукта строится вокруг механики **Challenge a Friend**: после прохождения задания ученик может отправить другу challenge-код или ссылку и предложить пройти тот же набор вопросов.
+
+Для MVP система должна выглядеть как законченный продукт, а не как демонстрация вызова LLM API.
+
+---
+
+# 2. ГРАНИЦЫ ПРОЕКТА И РОЛИ КОМАНДЫ
+
+## 2.1. Zero — Backend
+
+**Стек фиксирован:**
+
+- TypeScript
+- Express 5
+- Prisma
+- PostgreSQL
+- Redis
+- BullMQ
+- Zod
+- JWT access token
+- opaque refresh token с rotation
+- OTP authentication
+- advisory lock + Serializable transaction для конкурентных операций
+- единый модуль бизнес-расчётов
+- AppError + ERROR_CODES
+- Vitest
+
+Backend является единственным источником истины для:
+
+- пользователей;
+- ролей;
+- классов;
+- membership;
+- предметов;
+- тем;
+- AI-челленджей;
+- вопросов;
+- попыток;
+- ответов;
+- дуэлей;
+- XP;
+- streak;
+- leaderboard;
+- статистики;
+- teacher/admin analytics.
+
+Frontend не рассчитывает итоговый score, XP, streak, победителя дуэли или статистику самостоятельно.
+
+---
+
+## 2.2. Javodbek — Client React
+
+Отдельное React-приложение для ученика.
+
+Обязанности:
+
+- авторизация;
+- onboarding;
+- dashboard;
+- выбор предметов/тем;
+- прохождение challenge;
+- отображение результатов;
+- создание/принятие дуэли;
+- leaderboard;
+- профиль;
+- streak;
+- XP;
+- история активности.
+
+Клиент использует готовый backend API.
+
+---
+
+## 2.3. Aziz — Teacher/Admin React, часть A
+
+Aziz работает в отдельном React-приложении teacher/admin panel.
+
+Его независимая зона:
+
+- dashboard преподавателя;
+- классы;
+- создание класса;
+- управление учениками;
+- приглашения;
+- предметы класса;
+- темы;
+- создание teacher challenge;
+- просмотр списка активностей.
+
+---
+
+## 2.4. Muhammad Ali — Teacher/Admin React, часть B
+
+В том же React-приложении, но независимая функциональная зона:
+
+- analytics;
+- результаты учеников;
+- leaderboard класса;
+- аналитика по темам;
+- weak topics;
+- activity feed;
+- отчёты;
+- moderation/status management;
+- просмотр AI generation jobs/errors при наличии времени.
+
+Aziz и Muhammad Ali должны заранее согласовать только:
+
+- layout;
+- sidebar;
+- routing;
+- API client;
+- auth store;
+- UI-kit/design tokens.
+
+После этого их страницы должны разрабатываться независимо.
+
+---
+
+# 3. РОЛИ ПОЛЬЗОВАТЕЛЕЙ
+
+## 3.1. STUDENT
+
+Ученик может:
+
+- авторизоваться через OTP;
+- заполнить профиль;
+- вступить в класс по invite code;
+- видеть свои предметы;
+- видеть темы;
+- запускать AI Practice;
+- проходить challenge;
+- отвечать на вопросы;
+- завершать попытку;
+- видеть score;
+- получать XP;
+- поддерживать streak;
+- видеть уровень;
+- видеть собственную статистику;
+- видеть leaderboard класса;
+- создавать дуэль на основе пройденного challenge;
+- принимать challenge от друга;
+- видеть результат дуэли;
+- видеть историю активности.
+
+Не может:
+
+- создавать классы;
+- изменять XP;
+- менять правильные ответы;
+- видеть правильные ответы до завершения попытки;
+- изменять результаты;
+- просматривать аналитику других учеников кроме публичного leaderboard.
+
+---
+
+## 3.2. TEACHER
+
+Преподаватель может:
+
+- авторизоваться;
+- создавать классы;
+- получать invite code;
+- добавлять/удалять учеников;
+- создавать предметы;
+- создавать темы;
+- создавать challenge вручную;
+- просить AI сгенерировать challenge;
+- публиковать/архивировать challenge;
+- смотреть результаты;
+- смотреть статистику класса;
+- смотреть слабые темы;
+- смотреть leaderboard;
+- смотреть активность учеников.
+
+---
+
+## 3.3. ADMIN
+
+Для hackathon admin может быть логической ролью внутри teacher/admin приложения.
+
+Может:
+
+- видеть все классы;
+- видеть пользователей;
+- блокировать/разблокировать пользователя;
+- архивировать проблемный challenge;
+- видеть общую статистику платформы;
+- видеть failed AI generation jobs;
+- повторно запустить генерацию при наличии времени.
+
+Для MVP полноценная super-admin система не является обязательной. Teacher dashboard важнее.
+
+---
+
+# 4. ОСНОВНЫЕ ДОМЕННЫЕ ПОНЯТИЯ
+
+## SchoolClass
+
+Учебный класс/группа, внутри которого существуют:
+
+- преподаватели;
+- ученики;
+- предметы;
+- темы;
+- leaderboard;
+- challenges.
+
+---
+
+## Subject
+
+Учебный предмет:
+
+- Mathematics
+- Physics
+- English
+- History
+- Biology
+- и т.д.
+
+В MVP предмет создаётся преподавателем внутри класса.
+
+---
+
+## Topic
+
+Конкретная тема предмета.
+
+Примеры:
+
+- Quadratic equations
+- Present Perfect
+- Newton's laws
+- Cell structure
+
+---
+
+## Challenge
+
+Набор вопросов по одной теме.
+
+Типы:
+
+- AI_PRACTICE — персональная тренировка;
+- TEACHER_ASSIGNMENT — создано/назначено преподавателем;
+- DUEL_BASE — challenge, использованный для соревнования.
+
+Challenge имеет фиксированный набор вопросов после публикации.
+
+---
+
+## Attempt
+
+Одна попытка ученика пройти challenge.
+
+Attempt фиксирует:
+
+- начало;
+- завершение;
+- ответы;
+- правильность;
+- score;
+- duration;
+- XP reward.
+
+---
+
+## Duel
+
+Соревнование двух учеников на одном и том же challenge.
+
+Оба участника должны получить одинаковые вопросы и одинаковые условия.
+
+---
+
+## XP
+
+Игровые очки прогресса ученика.
+
+XP нельзя принимать от клиента как доверенное значение.
+
+---
+
+## Streak
+
+Количество последовательных учебных дней, в которые ученик завершил минимум одну валидную активность.
+
+---
+
+# 5. КЛЮЧЕВЫЕ USER FLOWS
+
+# FLOW 1. Авторизация ученика
+
+1. Пользователь вводит телефон/email в зависимости от выбранного OTP-канала.
+2. Client вызывает запрос OTP.
+3. Backend создаёт OTP challenge.
+4. Для hackathon код либо реально отправляется внешним сервисом, либо возвращается/логируется в demo mode.
+5. Пользователь вводит OTP.
+6. Backend проверяет OTP.
+7. Если пользователь новый — создаёт User.
+8. Возвращает access token + refresh token.
+9. Клиент получает `/auth/me`.
+10. Если профиль не заполнен — открывает onboarding.
+
+Ошибки:
+
+- invalid identifier;
+- OTP expired;
+- invalid OTP;
+- too many attempts;
+- rate limited;
+- user blocked.
+
+---
+
+# FLOW 2. Вступление ученика в класс
+
+1. Ученик получает invite code от преподавателя.
+2. Открывает Join Class.
+3. Вводит код.
+4. Backend проверяет существование и активность класса.
+5. Создаёт membership STUDENT.
+6. Dashboard начинает показывать предметы и leaderboard этого класса.
+
+**Конкурентность:** повторные одновременные запросы Join не должны создать несколько membership.
+
+Нужна уникальность `(classId, userId)` и транзакционно безопасная операция.
+
+---
+
+# FLOW 3. Преподаватель создаёт класс
+
+1. Teacher открывает Classes.
+2. Нажимает Create class.
+3. Указывает название, grade и optional description.
+4. Backend создаёт класс.
+5. Создаёт teacher membership.
+6. Генерирует уникальный invite code.
+7. Teacher получает страницу класса.
+8. Может скопировать invite code.
+
+**Конкурентность:** invite code должен быть уникальным.
+
+---
+
+# FLOW 4. Преподаватель создаёт предмет и тему
+
+1. Teacher открывает класс.
+2. Создаёт Subject.
+3. Создаёт Topic.
+4. Указывает:
+   - название;
+   - описание;
+   - difficulty;
+   - optional source text/context.
+5. Topic появляется ученикам.
+
+Для MVP не требуется сложная учебная программа.
+
+---
+
+# FLOW 5. AI генерирует challenge
+
+1. Teacher или Student выбирает Topic.
+2. Нажимает Generate Challenge / Start AI Practice.
+3. Frontend отправляет параметры:
+   - topicId;
+   - difficulty;
+   - questionCount.
+4. Backend создаёт AI generation job.
+5. Job получает контекст Topic.
+6. Внешний AI возвращает структурированный набор вопросов.
+7. Backend валидирует структуру.
+8. Сохраняет Challenge + Questions + Options.
+9. Challenge получает статус READY.
+10. Frontend получает готовый challenge.
+
+Для hackathon допустим polling.
+
+Статусы генерации:
+
+- PENDING
+- PROCESSING
+- READY
+- FAILED
+
+**Нестандартная логика:** AI output нельзя считать валидным. Backend обязан принимать только структуру, соответствующую контракту.
+
+Если AI недоступен, должен существовать demo fallback: заранее подготовленный набор вопросов.
+
+---
+
+# FLOW 6. Ученик проходит challenge
+
+1. Ученик открывает challenge.
+2. Нажимает Start.
+3. Backend создаёт Attempt со статусом IN_PROGRESS.
+4. Клиент получает вопросы без correctAnswer.
+5. Ученик отвечает.
+6. Ответы могут отправляться по одному либо одним payload при finish.
+7. Ученик нажимает Finish.
+8. Backend атомарно завершает Attempt.
+9. Сервер сравнивает ответы с правильными.
+10. Рассчитывает:
+    - correct count;
+    - incorrect count;
+    - accuracy;
+    - score;
+    - duration;
+    - XP reward.
+11. Обновляет StudentStats.
+12. Обновляет TopicProgress.
+13. Обновляет streak.
+14. Обновляет leaderboard-derived данные.
+15. Возвращает Result.
+
+**КРИТИЧЕСКАЯ КОНКУРЕНТНОСТЬ.**
+
+Два одновременных `finish` запроса не должны:
+
+- дважды начислить XP;
+- дважды засчитать attempt;
+- дважды изменить streak;
+- дважды обновить статистику.
+
+Finish должен быть идемпотентным на уровне бизнес-операции.
+
+**РАСЧЁТНЫЙ МОДУЛЬ:**
+
+- score;
+- accuracy;
+- XP;
+- streak;
+- topic mastery.
+
+---
+
+# FLOW 7. Ученик создаёт дуэль
+
+1. Ученик завершает challenge.
+2. На Result нажимает Challenge Friend.
+3. Backend создаёт Duel.
+4. Создаётся share code.
+5. Duel фиксирует:
+   - challengeId;
+   - challengerId;
+   - challengerAttemptId;
+   - status WAITING.
+6. Пользователь копирует ссылку/код.
+7. Друг открывает ссылку.
+
+Пример deep link:
+
+`/duel/{shareCode}`
+
+Для MVP реальный Telegram/WhatsApp API не нужен: достаточно Web Share API / Copy Link.
+
+---
+
+# FLOW 8. Друг принимает дуэль
+
+1. Пользователь открывает duel link.
+2. Если не авторизован — проходит auth.
+3. Backend возвращает preview:
+   - challenger;
+   - subject;
+   - topic;
+   - difficulty;
+   - question count.
+4. Нажимает Accept.
+5. Backend проверяет:
+   - duel WAITING;
+   - пользователь не challenger;
+   - opponent ещё отсутствует.
+6. Устанавливает opponentId.
+7. Duel становится ACTIVE.
+8. Создаётся Attempt для opponent.
+9. Пользователь проходит тот же Challenge.
+
+**КРИТИЧЕСКАЯ КОНКУРЕНТНОСТЬ.**
+
+Если несколько пользователей одновременно пытаются принять один shareCode, победить должен только один.
+
+Операция `accept duel` требует блокировки/Serializable transaction.
+
+Ошибки:
+
+- DUEL_NOT_FOUND
+- DUEL_EXPIRED
+- DUEL_ALREADY_ACCEPTED
+- CANNOT_DUEL_SELF
+- CHALLENGE_NOT_READY
+
+---
+
+# FLOW 9. Завершение дуэли
+
+1. Opponent завершает attempt.
+2. Backend рассчитывает результат.
+3. Получает challenger attempt и opponent attempt.
+4. Определяет победителя.
+
+Правило MVP:
+
+1. выше score;
+2. при одинаковом score — выше correct answers;
+3. если одинаково — меньше durationMs;
+4. если всё одинаково — DRAW.
+
+5. Duel становится COMPLETED.
+6. Сохраняется winnerId либо null для DRAW.
+7. Обновляется duel статистика обоих игроков.
+8. Начисляется bonus XP победителю.
+9. Клиент показывает duel result.
+
+**КРИТИЧЕСКАЯ КОНКУРЕНТНОСТЬ:** duel нельзя завершить дважды и нельзя дважды начислить winner bonus.
+
+**РАСЧЁТНЫЙ МОДУЛЬ:** winner resolution + bonus XP.
+
+---
+
+# FLOW 10. Leaderboard
+
+1. Ученик открывает Leaderboard.
+2. Выбирает период:
+   - weekly;
+   - all time.
+3. Backend возвращает игроков класса.
+4. Сортировка MVP:
+   - XP descending;
+   - completed challenges descending;
+   - userId/createdAt как стабильный tie-breaker.
+5. Текущий пользователь отдельно помечается.
+
+Leaderboard не должен принимать rank от клиента.
+
+Для hackathon допускается вычисление из агрегированных stats.
+
+Redis можно использовать для кэша leaderboard.
+
+---
+
+# FLOW 11. Teacher analytics
+
+1. Teacher открывает Dashboard.
+2. Backend возвращает:
+   - total students;
+   - active students;
+   - completed attempts;
+   - average accuracy;
+   - total challenges;
+   - duel count;
+   - average XP;
+   - weak topics.
+3. Teacher открывает конкретный Topic.
+4. Видит:
+   - attempts;
+   - unique students;
+   - average accuracy;
+   - completion count;
+   - strongest/weakest students;
+   - distribution по результатам.
+5. Teacher открывает Student.
+6. Видит:
+   - total XP;
+   - streak;
+   - completed challenges;
+   - accuracy;
+   - topic progress;
+   - recent attempts.
+
+**РАСЧЁТНЫЙ МОДУЛЬ:** агрегированная статистика.
+
+---
+
+# 6. БИЗНЕС-ПРАВИЛА
+
+## 6.1. Challenge
+
+Challenge может быть начат только если:
+
+- status = READY;
+- challenge активен;
+- topic не архивирован;
+- пользователь имеет доступ к классу.
+
+После READY набор вопросов не меняется для уже созданных попыток/дуэлей.
+
+---
+
+## 6.2. Questions
+
+MVP поддерживает:
+
+- SINGLE_CHOICE;
+- TRUE_FALSE.
+
+Не делать free-text AI grading в must-have: это создаёт лишнюю неопределённость для live-demo.
+
+Каждый вопрос содержит:
+
+- prompt;
+- options;
+- correct option;
+- explanation;
+- points.
+
+Клиент до finish не получает correct option.
+
+---
+
+## 6.3. Attempt
+
+Статусы:
+
+- IN_PROGRESS
+- COMPLETED
+- ABANDONED
+
+У одного пользователя может быть несколько practice attempts.
+
+Один конкретный Attempt может быть завершён только один раз.
+
+Completed attempt immutable с точки зрения ученика.
+
+---
+
+## 6.4. Score
+
+Базовая формула MVP:
+
+`baseScore = round((earnedQuestionPoints / totalQuestionPoints) * 1000)`
+
+Диапазон:
+
+`0..1000`
+
+Для честности duel speed не добавляется прямо в основной score. Время используется как tie-breaker.
+
+---
+
+## 6.5. XP
+
+Предлагаемая детерминированная формула:
+
+`baseXp = 20`
+
+`accuracyXp = round(accuracyPercent * 0.6)`
+
+`perfectBonus = 20`, если accuracy = 100%.
+
+`duelWinnerBonus = 30`, если пользователь победил в duel.
+
+Обычная завершённая практика:
+
+`xp = baseXp + accuracyXp + perfectBonus`
+
+Максимум без duel bonus: 100 XP.
+
+Все значения должны находиться в одном backend calculation module и не дублироваться во frontend.
+
+---
+
+## 6.6. Level
+
+Для MVP:
+
+`level = floor(totalXp / 500) + 1`
+
+Frontend получает готовые `level`, `currentLevelXp`, `nextLevelXp`.
+
+---
+
+## 6.7. Streak
+
+Учебный день определяется выбранной продуктовой timezone.
+
+Для hackathon рекомендуется одна фиксированная timezone проекта.
+
+Правила:
+
+- первая завершённая валидная активность → streak = 1;
+- ещё одна активность в тот же календарный день → streak не меняется;
+- активность на следующий календарный день → streak + 1;
+- пропущен минимум один полный день → streak сбрасывается на 1.
+
+Backend должен хранить `lastActivityDate`.
+
+---
+
+## 6.8. Topic mastery
+
+Для MVP mastery рассчитывается по последним N завершённым attempts ученика по topic.
+
+Рекомендуем N = 5.
+
+`mastery = weighted average accuracy`
+
+Можно упростить до среднего accuracy последних пяти попыток.
+
+Категории:
+
+- 0–39: WEAK
+- 40–69: LEARNING
+- 70–89: GOOD
+- 90–100: MASTERED
+
+---
+
+## 6.9. Weak topic класса
+
+Topic считается weak, если:
+
+- есть минимум 3 completed attempts;
+- average accuracy < 60%.
+
+Для маленького demo-класса порог количества attempts можно сделать configurable/demo-friendly.
+
+---
+
+# 7. МОДЕЛЬ ДАННЫХ
+
+# 7.1. User
+
+Поля:
+
+- id
+- role: STUDENT | TEACHER | ADMIN
+- identifier
+- displayName
+- avatarUrl nullable
+- status: ACTIVE | BLOCKED
+- onboardingCompleted
+- createdAt
+- updatedAt
+
+Связи:
+
+- memberships
+- attempts
+- createdChallenges
+- duel participations
+- stats
+
+---
+
+# 7.2. OtpChallenge
+
+- id
+- identifier
+- codeHash
+- purpose
+- expiresAt
+- attemptsCount
+- consumedAt nullable
+- createdAt
+
+---
+
+# 7.3. RefreshSession
+
+- id
+- userId
+- tokenHash
+- familyId
+- expiresAt
+- revokedAt nullable
+- replacedById nullable
+- createdAt
+- lastUsedAt nullable
+- userAgent nullable
+- ipHash nullable
+
+---
+
+# 7.4. SchoolClass
+
+- id
+- name
+- grade
+- description nullable
+- inviteCode
+- status: ACTIVE | ARCHIVED
+- createdById
+- createdAt
+- updatedAt
+
+---
+
+# 7.5. ClassMembership
+
+- id
+- classId
+- userId
+- role: STUDENT | TEACHER
+- status: ACTIVE | REMOVED
+- joinedAt
+
+Ограничение:
+
+unique `(classId, userId)`.
+
+---
+
+# 7.6. Subject
+
+- id
+- classId
+- name
+- description nullable
+- iconKey nullable
+- status: ACTIVE | ARCHIVED
+- createdById
+- createdAt
+- updatedAt
+
+---
+
+# 7.7. Topic
+
+- id
+- subjectId
+- title
+- description nullable
+- sourceContext nullable
+- difficulty: EASY | MEDIUM | HARD
+- status: ACTIVE | ARCHIVED
+- createdById
+- createdAt
+- updatedAt
+
+---
+
+# 7.8. Challenge
+
+- id
+- topicId
+- createdById nullable
+- origin: AI | TEACHER | SYSTEM
+- type: AI_PRACTICE | TEACHER_ASSIGNMENT | DUEL_BASE
+- title
+- difficulty
+- questionCount
+- status: PENDING | PROCESSING | READY | FAILED | ARCHIVED
+- generationError nullable
+- publishedAt nullable
+- createdAt
+- updatedAt
+
+---
+
+# 7.9. Question
+
+- id
+- challengeId
+- order
+- type: SINGLE_CHOICE | TRUE_FALSE
+- prompt
+- explanation nullable
+- points
+- createdAt
+
+---
+
+# 7.10. QuestionOption
+
+- id
+- questionId
+- order
+- text
+- isCorrect
+
+`isCorrect` никогда не отправляется в student challenge payload до завершения attempt.
+
+---
+
+# 7.11. Attempt
+
+- id
+- challengeId
+- userId
+- duelId nullable
+- status: IN_PROGRESS | COMPLETED | ABANDONED
+- startedAt
+- completedAt nullable
+- durationMs nullable
+- correctCount nullable
+- incorrectCount nullable
+- accuracy nullable
+- score nullable
+- xpAwarded nullable
+- createdAt
+- updatedAt
+
+---
+
+# 7.12. AttemptAnswer
+
+- id
+- attemptId
+- questionId
+- selectedOptionId nullable
+- isCorrect nullable
+- awardedPoints nullable
+- answeredAt nullable
+
+Ограничение:
+
+unique `(attemptId, questionId)`.
+
+---
+
+# 7.13. Duel
+
+- id
+- shareCode
+- challengeId
+- challengerId
+- challengerAttemptId
+- opponentId nullable
+- opponentAttemptId nullable
+- status: WAITING | ACTIVE | COMPLETED | EXPIRED | CANCELLED
+- winnerId nullable
+- resultType nullable: CHALLENGER_WIN | OPPONENT_WIN | DRAW
+- expiresAt
+- acceptedAt nullable
+- completedAt nullable
+- createdAt
+- updatedAt
+
+---
+
+# 7.14. StudentStats
+
+Агрегированное состояние пользователя.
+
+- id
+- userId
+- classId
+- totalXp
+- level
+- currentStreak
+- bestStreak
+- lastActivityDate nullable
+- completedChallenges
+- totalCorrectAnswers
+- totalAnswers
+- duelWins
+- duelLosses
+- duelDraws
+- updatedAt
+
+Ограничение:
+
+unique `(userId, classId)`.
+
+---
+
+# 7.15. TopicProgress
+
+- id
+- userId
+- topicId
+- attemptsCount
+- averageAccuracy
+- masteryScore
+- masteryLevel
+- lastAttemptAt nullable
+- updatedAt
+
+unique `(userId, topicId)`.
+
+---
+
+# 7.16. XpLedger
+
+Нужен для аудируемости начисления XP.
+
+- id
+- userId
+- classId
+- sourceType: ATTEMPT | DUEL_WIN | ADMIN_ADJUSTMENT
+- sourceId
+- amount
+- balanceAfter
+- createdAt
+
+Критически важно:
+
+для одного source нельзя начислить один и тот же XP повторно.
+
+Рекомендуемое логическое ограничение:
+
+unique `(userId, sourceType, sourceId)`.
+
+---
+
+# 7.17. AiGenerationJob
+
+- id
+- challengeId
+- requestedById
+- provider
+- status: PENDING | PROCESSING | COMPLETED | FAILED
+- errorCode nullable
+- errorMessage nullable
+- createdAt
+- startedAt nullable
+- finishedAt nullable
+
+---
+
+# 7.18. ActivityEvent
+
+Для teacher activity feed.
+
+- id
+- classId
+- userId
+- type
+- entityType
+- entityId
+- metadata
+- createdAt
+
+Примеры type:
+
+- JOINED_CLASS
+- COMPLETED_CHALLENGE
+- WON_DUEL
+- CREATED_CHALLENGE
+
+---
+
+# 8. СВЯЗИ СУЩНОСТЕЙ
+
+SchoolClass:
+
+- has many ClassMembership
+- has many Subject
+- has many StudentStats
+
+Subject:
+
+- belongs to SchoolClass
+- has many Topic
+
+Topic:
+
+- belongs to Subject
+- has many Challenge
+- has many TopicProgress
+
+Challenge:
+
+- belongs to Topic
+- has many Question
+- has many Attempt
+- may have many Duel
+
+Question:
+
+- belongs to Challenge
+- has many QuestionOption
+
+Attempt:
+
+- belongs to User
+- belongs to Challenge
+- optionally belongs to Duel
+- has many AttemptAnswer
+
+Duel:
+
+- belongs to Challenge
+- belongs to challenger
+- optionally belongs to opponent
+- references challengerAttempt
+- optionally references opponentAttempt
+
+StudentStats:
+
+- belongs to User
+- belongs to SchoolClass
+
+XpLedger:
+
+- belongs to User
+- belongs to SchoolClass
+
+---
+
+# 9. ОБЩИЙ API-КОНТРАКТ
+
+Base path:
+
+`/api/v1`
+
+Успешный ответ может иметь общий envelope:
+
+```json
+{
+  "data": {}
+}
+
+Ошибка:
+
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human readable message",
+    "details": null
+  }
+}
+
+Frontend должен ориентироваться на error.code, а не парсить текст message.
+
+10. AUTH API
+POST /auth/otp/request
+
+Доступ: public.
+
+Назначение:
+запрос OTP.
+
+Body:
+
+identifier
+
+Ошибки:
+
+VALIDATION_ERROR
+OTP_RATE_LIMITED
+USER_BLOCKED
+POST /auth/otp/verify
+
+Доступ: public.
+
+Body:
+
+identifier
+code
+
+Результат:
+
+accessToken
+refreshToken
+user
+isNewUser
+
+Ошибки:
+
+OTP_INVALID
+OTP_EXPIRED
+OTP_TOO_MANY_ATTEMPTS
+USER_BLOCKED
+POST /auth/refresh
+
+Доступ: refresh token.
+
+Назначение:
+
+rotation refresh token;
+выдать новый access;
+старый refresh становится недействительным.
+
+Ошибки:
+
+REFRESH_INVALID
+REFRESH_EXPIRED
+REFRESH_REUSED
+SESSION_REVOKED
+POST /auth/logout
+
+Доступ: authenticated.
+
+Ревокает текущую refresh session.
+
+GET /auth/me
+
+Доступ: authenticated.
+
+Возвращает:
+
+id
+role
+displayName
+avatarUrl
+onboardingCompleted
+PATCH /auth/me
+
+Доступ: authenticated.
+
+Body:
+
+displayName optional
+avatarUrl optional
+onboardingCompleted optional
+
+Ошибки:
+
+VALIDATION_ERROR
+11. CLASS API
+GET /classes
+
+Доступ: STUDENT, TEACHER.
+
+Возвращает классы текущего пользователя.
+
+POST /classes
+
+Доступ: TEACHER.
+
+Body:
+
+name
+grade
+description optional
+
+Возвращает созданный класс + inviteCode.
+
+Ошибки:
+
+VALIDATION_ERROR
+FORBIDDEN
+GET /classes/:classId
+
+Доступ: member класса.
+
+Возвращает основные данные класса.
+
+Ошибки:
+
+CLASS_NOT_FOUND
+CLASS_ACCESS_DENIED
+POST /classes/join
+
+Доступ: STUDENT.
+
+Body:
+
+inviteCode
+
+Ошибки:
+
+INVITE_CODE_INVALID
+CLASS_ARCHIVED
+ALREADY_CLASS_MEMBER
+
+Конкурентная операция.
+
+GET /classes/:classId/members
+
+Доступ:
+
+TEACHER класса;
+ADMIN.
+
+Возвращает members.
+
+DELETE /classes/:classId/members/:userId
+
+Доступ: TEACHER класса / ADMIN.
+
+Назначение:
+удалить ученика из класса.
+
+Ошибки:
+
+MEMBER_NOT_FOUND
+CLASS_ACCESS_DENIED
+CANNOT_REMOVE_LAST_TEACHER
+12. SUBJECT API
+GET /classes/:classId/subjects
+
+Доступ: member класса.
+
+POST /classes/:classId/subjects
+
+Доступ: TEACHER.
+
+Body:
+
+name
+description optional
+iconKey optional
+PATCH /subjects/:subjectId
+
+Доступ: TEACHER.
+
+DELETE /subjects/:subjectId
+
+Доступ: TEACHER.
+
+Для MVP предпочтительно soft archive.
+
+Ошибки:
+
+SUBJECT_NOT_FOUND
+SUBJECT_HAS_ACTIVE_CONTENT
+FORBIDDEN
+13. TOPIC API
+GET /subjects/:subjectId/topics
+
+Доступ: member класса.
+
+POST /subjects/:subjectId/topics
+
+Доступ: TEACHER.
+
+Body:
+
+title
+description optional
+sourceContext optional
+difficulty
+GET /topics/:topicId
+
+Доступ: member класса.
+
+Для STUDENT может дополнительно вернуть:
+
+masteryScore
+masteryLevel
+attemptsCount.
+PATCH /topics/:topicId
+
+Доступ: TEACHER.
+
+DELETE /topics/:topicId
+
+Доступ: TEACHER.
+
+Логически архивирует.
+
+14. CHALLENGE API
+GET /topics/:topicId/challenges
+
+Доступ: member класса.
+
+Student получает только доступные READY challenges.
+
+Teacher может видеть все статусы.
+
+POST /topics/:topicId/challenges/generate
+
+Доступ: STUDENT, TEACHER.
+
+Body:
+
+difficulty
+questionCount
+
+Ограничения MVP:
+
+questionCount: например 5–10.
+
+Возвращает:
+
+challengeId
+status
+
+Ошибки:
+
+TOPIC_NOT_FOUND
+AI_GENERATION_LIMIT
+AI_PROVIDER_UNAVAILABLE
+VALIDATION_ERROR
+GET /challenges/:challengeId/status
+
+Доступ: requester/member класса.
+
+Возвращает:
+
+PENDING
+PROCESSING
+READY
+FAILED
+GET /challenges/:challengeId
+
+Доступ: member класса.
+
+Student payload НЕ содержит:
+
+isCorrect;
+correctOptionId;
+скрытые grading поля.
+POST /topics/:topicId/challenges
+
+Доступ: TEACHER.
+
+Назначение:
+создать challenge вручную.
+
+Body:
+
+title
+difficulty
+questions[]
+
+Каждый question:
+
+type
+prompt
+points
+explanation optional
+options[]
+
+Option:
+
+text
+isCorrect
+
+Ошибки:
+
+INVALID_QUESTION
+INVALID_CORRECT_OPTION_COUNT
+VALIDATION_ERROR
+PATCH /challenges/:challengeId/status
+
+Доступ: TEACHER.
+
+Body:
+
+status READY/ARCHIVED
+15. ATTEMPT API
+POST /challenges/:challengeId/attempts
+
+Доступ: STUDENT.
+
+Создаёт attempt.
+
+Возвращает:
+
+attemptId
+startedAt
+challenge metadata
+questions без correct answer.
+
+Ошибки:
+
+CHALLENGE_NOT_FOUND
+CHALLENGE_NOT_READY
+CHALLENGE_ACCESS_DENIED
+GET /attempts/:attemptId
+
+Доступ:
+
+owner;
+teacher класса.
+
+Student во время IN_PROGRESS не получает правильные ответы.
+
+PUT /attempts/:attemptId/answers/:questionId
+
+Доступ: owner.
+
+Body:
+
+selectedOptionId
+
+Назначение:
+upsert ответа до завершения.
+
+Ошибки:
+
+ATTEMPT_NOT_FOUND
+ATTEMPT_ALREADY_COMPLETED
+QUESTION_NOT_IN_CHALLENGE
+OPTION_NOT_IN_QUESTION
+POST /attempts/:attemptId/finish
+
+Доступ: owner.
+
+КРИТИЧЕСКАЯ транзакционная операция.
+
+Результат:
+
+score
+accuracy
+correctCount
+incorrectCount
+durationMs
+xpAwarded
+totalXp
+level
+streak
+questionResults[]
+
+После finish можно вернуть:
+
+selectedOptionId
+correctOptionId
+explanation
+isCorrect
+
+Ошибки:
+
+ATTEMPT_NOT_FOUND
+ATTEMPT_ALREADY_COMPLETED
+ATTEMPT_HAS_UNANSWERED_QUESTIONS
+INVALID_ATTEMPT_STATE
+
+Повторный запрос после успешного finish должен либо:
+
+вернуть уже существующий финальный result;
+либо детерминированно сообщить completed без повторного начисления.
+
+Предпочтительно идемпотентно вернуть существующий результат.
+
+GET /me/attempts
+
+Доступ: STUDENT.
+
+Query:
+
+limit
+cursor
+subjectId optional
+topicId optional
+
+История attempts.
+
+16. DUEL API
+POST /attempts/:attemptId/duels
+
+Доступ: STUDENT owner завершённого attempt.
+
+Создаёт Duel.
+
+Ошибки:
+
+ATTEMPT_NOT_FOUND
+ATTEMPT_NOT_COMPLETED
+DUEL_ALREADY_EXISTS_FOR_ATTEMPT при выбранном ограничении
+FORBIDDEN
+
+Возвращает:
+
+duelId
+shareCode
+expiresAt
+sharePath
+GET /duels/code/:shareCode
+
+Доступ: authenticated.
+
+Возвращает preview.
+
+Не раскрывает ответы.
+
+POST /duels/code/:shareCode/accept
+
+Доступ: STUDENT.
+
+КРИТИЧЕСКАЯ конкурентная операция.
+
+Возвращает:
+
+duel
+opponentAttemptId
+challenge/questions
+
+Ошибки:
+
+DUEL_NOT_FOUND
+DUEL_EXPIRED
+DUEL_ALREADY_ACCEPTED
+CANNOT_DUEL_SELF
+CHALLENGE_NOT_READY
+GET /duels/:duelId
+
+Доступ:
+участники + teacher соответствующего класса.
+
+Возвращает:
+
+status
+challenger
+opponent
+challenge
+challengerResult, если доступен
+opponentResult, если доступен
+winner
+resultType
+GET /me/duels
+
+Доступ: STUDENT.
+
+Query:
+
+status optional
+cursor
+limit
+17. STUDENT DASHBOARD API
+GET /me/dashboard
+
+Доступ: STUDENT.
+
+Один агрегированный endpoint для первого экрана.
+
+Возвращает:
+
+profile summary;
+current class;
+totalXp;
+level;
+streak;
+bestStreak;
+completedChallenges;
+averageAccuracy;
+active subjects;
+recent activity;
+recommended topics;
+leaderboard preview;
+pending/active duels.
+
+Цель — не заставлять frontend делать 10 запросов для dashboard.
+
+GET /me/stats
+
+Возвращает расширенную персональную статистику.
+
+GET /me/topics/progress
+
+Query:
+
+subjectId optional
+
+Возвращает TopicProgress.
+
+18. LEADERBOARD API
+GET /classes/:classId/leaderboard
+
+Доступ: member класса.
+
+Query:
+
+period=week|all
+limit
+
+Возвращает:
+
+rank
+user
+totalXp/periodXp
+completedChallenges
+currentStreak
+isCurrentUser
+
+Для MVP weekly leaderboard можно строить из XpLedger по текущей неделе.
+
+19. TEACHER DASHBOARD API
+GET /teacher/classes/:classId/dashboard
+
+Доступ: TEACHER класса.
+
+Возвращает:
+
+totalStudents
+activeStudents
+completedAttempts
+averageAccuracy
+totalChallenges
+totalDuels
+weakTopics[]
+topStudents[]
+recentActivity[]
+GET /teacher/classes/:classId/students
+
+Доступ: TEACHER.
+
+Возвращает таблицу:
+
+user
+XP
+level
+streak
+completedChallenges
+averageAccuracy
+lastActivityAt
+GET /teacher/classes/:classId/students/:userId
+
+Доступ: TEACHER.
+
+Возвращает:
+
+profile
+stats
+topicProgress
+recentAttempts
+duel stats
+GET /teacher/classes/:classId/topics/analytics
+
+Доступ: TEACHER.
+
+Возвращает по каждой теме:
+
+topic
+uniqueParticipants
+attemptsCount
+averageAccuracy
+masteryAverage
+weak flag
+GET /teacher/topics/:topicId/analytics
+
+Доступ: TEACHER.
+
+Возвращает:
+
+participants
+attempts
+averageAccuracy
+averageScore
+mastery distribution
+recent attempts
+strongest students
+students needing attention
+GET /teacher/classes/:classId/activity
+
+Доступ: TEACHER.
+
+Query:
+
+cursor
+limit
+type optional
+20. REPORTS API
+GET /teacher/classes/:classId/reports/overview
+
+Доступ: TEACHER.
+
+Возвращает агрегированные показатели за период.
+
+Query:
+
+from optional
+to optional
+
+Показатели:
+
+activeStudents
+attempts
+completedChallenges
+avgAccuracy
+XP earned
+duelsCreated
+duelsCompleted
+topTopics
+weakTopics
+GET /teacher/classes/:classId/reports/leaderboard
+
+Доступ: TEACHER.
+
+Расширенная таблица для admin panel.
+
+21. ADMIN API
+
+Must-have admin-функции можно ограничить teacher scope.
+
+Если реализуется ADMIN:
+
+GET /admin/overview
+totalUsers
+totalStudents
+totalTeachers
+totalClasses
+totalAttempts
+AI generations
+AI failures
+duels
+GET /admin/users
+
+Фильтры:
+
+role
+status
+search
+PATCH /admin/users/:userId/status
+
+Body:
+
+ACTIVE | BLOCKED
+GET /admin/challenges
+
+Фильтры:
+
+status
+origin
+search
+PATCH /admin/challenges/:challengeId/status
+
+Например ARCHIVED.
+
+GET /admin/ai-jobs
+
+Фильтры:
+
+status
+POST /admin/ai-jobs/:jobId/retry
+
+Если останется время.
+
+22. ОСНОВНЫЕ ERROR_CODES
+
+Общий набор:
+
+VALIDATION_ERROR
+UNAUTHORIZED
+FORBIDDEN
+NOT_FOUND
+CONFLICT
+RATE_LIMITED
+INTERNAL_ERROR
+
+Auth:
+
+OTP_INVALID
+OTP_EXPIRED
+OTP_TOO_MANY_ATTEMPTS
+OTP_RATE_LIMITED
+REFRESH_INVALID
+REFRESH_EXPIRED
+REFRESH_REUSED
+SESSION_REVOKED
+USER_BLOCKED
+
+Class:
+
+CLASS_NOT_FOUND
+CLASS_ACCESS_DENIED
+CLASS_ARCHIVED
+INVITE_CODE_INVALID
+ALREADY_CLASS_MEMBER
+MEMBER_NOT_FOUND
+
+Subject/topic:
+
+SUBJECT_NOT_FOUND
+TOPIC_NOT_FOUND
+TOPIC_ARCHIVED
+
+Challenge:
+
+CHALLENGE_NOT_FOUND
+CHALLENGE_NOT_READY
+CHALLENGE_ARCHIVED
+CHALLENGE_ACCESS_DENIED
+AI_GENERATION_LIMIT
+AI_PROVIDER_UNAVAILABLE
+AI_OUTPUT_INVALID
+INVALID_QUESTION
+INVALID_CORRECT_OPTION_COUNT
+
+Attempt:
+
+ATTEMPT_NOT_FOUND
+ATTEMPT_ALREADY_COMPLETED
+ATTEMPT_HAS_UNANSWERED_QUESTIONS
+INVALID_ATTEMPT_STATE
+QUESTION_NOT_IN_CHALLENGE
+OPTION_NOT_IN_QUESTION
+
+Duel:
+
+DUEL_NOT_FOUND
+DUEL_EXPIRED
+DUEL_ALREADY_ACCEPTED
+DUEL_ALREADY_COMPLETED
+CANNOT_DUEL_SELF
+INVALID_DUEL_STATE
+23. CLIENT REACT — JAVODBEK
+23.1. Цель интерфейса
+
+Приложение ученика должно ощущаться как современный игровой learning product, а не LMS и не административная система.
+
+Главный UX:
+
+открыть → сразу понять, что пройти сегодня → начать challenge максимум за 1–2 действия → получить эмоциональный result → вызвать друга.
+
+23.2. Client routes
+
+Рекомендуемый логический набор:
+
+/login
+/verify
+/onboarding
+/join
+/dashboard
+/subjects
+/subjects/:subjectId
+/topics/:topicId
+/challenge/:challengeId
+/attempt/:attemptId
+/attempt/:attemptId/result
+/duel/:shareCode
+/duels
+/leaderboard
+/profile
+
+Конкретная router-библиотека остаётся frontend-разработчику.
+
+23.3. Login
+
+Элементы:
+
+logo;
+short value proposition;
+phone/email field;
+Continue;
+demo account shortcut при необходимости.
+
+Состояния:
+
+loading;
+validation;
+rate limit;
+blocked.
+23.4. OTP
+6-digit input;
+countdown;
+resend;
+verify;
+error state.
+23.5. Onboarding
+
+Поля:
+
+display name;
+avatar preset optional;
+invite code optional.
+
+Если invite code нет, можно закончить onboarding и вступить позже.
+
+23.6. Dashboard
+
+Главный экран.
+
+Блоки:
+
+Header
+greeting;
+avatar;
+notification indicator optional.
+Daily hero card
+
+Показывает:
+
+recommended topic;
+subject;
+difficulty;
+estimated 3–5 min;
+Start challenge.
+Stats strip
+XP;
+level;
+streak;
+average accuracy.
+Continue learning
+
+Карточки subject/topic.
+
+Your progress
+
+Небольшой progress visualization.
+
+Leaderboard preview
+
+Top 3 + позиция пользователя.
+
+Active duel
+
+Если есть активный duel — заметная карточка.
+
+Recent activity
+
+Последние completed challenges.
+
+23.7. Subjects
+
+Карточки предметов:
+
+icon;
+name;
+number topics;
+average mastery;
+progress indicator.
+23.8. Subject details
+
+Показывает topics.
+
+Topic card:
+
+title;
+difficulty;
+mastery state;
+attempts count;
+Start Practice.
+23.9. Topic details
+
+Показывает:
+
+topic title;
+description;
+mastery;
+previous best score;
+recent attempts;
+Generate AI Challenge / Practice Now.
+
+При генерации:
+
+generating state;
+skeleton/progress;
+retry при FAILED.
+23.10. Challenge intro
+
+Перед началом:
+
+title;
+subject/topic;
+difficulty;
+number questions;
+estimated duration;
+XP hint;
+Start.
+23.11. Attempt screen
+
+Самый важный экран ученика.
+
+Показывает:
+
+progress 2 / 5;
+question;
+answer options;
+Next;
+optional timer;
+Exit confirmation.
+
+Не показывать:
+
+correct answer;
+explanation до finish.
+
+На последнем вопросе:
+
+Finish Challenge.
+
+Обязательно:
+
+disable double-submit;
+loading state на finish.
+23.12. Result screen
+
+Должен быть визуально сильным для live-demo.
+
+Показывает:
+
+score;
+accuracy;
+correct answers;
+XP earned;
+total XP;
+level;
+streak;
+mastery update;
+answer review;
+CTA Challenge a friend;
+CTA Try again;
+CTA Back to dashboard.
+
+Если 100% — отдельный celebration state.
+
+23.13. Create duel UX
+
+После Challenge a friend:
+
+backend создаёт duel;
+modal/screen показывает share link;
+Copy;
+Share;
+expiration.
+23.14. Duel invite screen
+
+Показывает:
+
+avatar/name challenger;
+“Zero challenged you”;
+subject/topic;
+difficulty;
+questions;
+Accept Challenge.
+
+Если duel занят:
+
+friendly state “Challenge already accepted”.
+
+Если self:
+
+нельзя принять собственный duel.
+23.15. Duel result
+
+Показывает две стороны:
+
+challenger;
+opponent;
+score;
+correct;
+time;
+winner;
+XP bonus.
+
+CTA:
+
+Rematch — optional;
+Leaderboard;
+Back home.
+23.16. Leaderboard
+
+Tabs:
+
+This week
+All time
+
+Показывает:
+
+rank;
+avatar;
+name;
+XP;
+streak optional.
+
+Top 3 визуально выделить.
+
+Позиция текущего пользователя должна оставаться видимой.
+
+23.17. Profile
+
+Показывает:
+
+avatar;
+name;
+class;
+level;
+total XP;
+current streak;
+best streak;
+challenges completed;
+accuracy;
+duel record.
+23.18. Client empty/error states
+
+Обязательно предусмотреть:
+
+no class;
+no subjects;
+no topics;
+AI generation failed;
+challenge unavailable;
+duel expired;
+leaderboard empty;
+network error.
+24. ADMIN/TEACHER PANEL — ОБЩАЯ СТРУКТУРА
+
+Отдельное React-приложение.
+
+Desktop-first.
+
+Sidebar:
+
+Overview
+Classes
+Students
+Subjects & Topics
+Challenges
+Analytics
+Activity
+Settings optional
+
+Если есть ADMIN role:
+
+Platform
+Users
+AI Jobs
+25. AZIZ — ADMIN PART A
+
+Aziz отвечает за operational/management часть.
+
+25.1. Overview shell
+
+Общий layout:
+
+sidebar;
+topbar;
+class selector;
+account menu.
+
+Он может реализовать общий shell первым, чтобы Muhammad Ali подключал свои routes.
+
+25.2. Classes page
+
+Таблица/карточки:
+
+class name;
+grade;
+students count;
+subjects count;
+status;
+open.
+
+Actions:
+
+Create Class;
+Archive optional.
+25.3. Create Class
+
+Поля:
+
+name;
+grade;
+description.
+
+После создания:
+
+invite code;
+Copy invite.
+25.4. Class details
+
+Tabs:
+
+Students
+Subjects
+Challenges
+
+Summary:
+
+class name;
+grade;
+invite code;
+student count.
+25.5. Students management
+
+Таблица:
+
+student;
+level;
+XP;
+streak;
+joined;
+status.
+
+Actions:
+
+view;
+remove from class.
+25.6. Subjects
+
+CRUD:
+
+create subject;
+edit;
+archive.
+
+Subject details → topics.
+
+25.7. Topics
+
+Поля:
+
+title;
+description;
+difficulty;
+source context.
+
+Actions:
+
+create;
+edit;
+archive;
+generate challenge.
+25.8. Challenges management
+
+Таблица:
+
+title;
+topic;
+origin;
+difficulty;
+question count;
+status;
+created date.
+
+Actions:
+
+open;
+archive;
+generate new.
+25.9. Manual challenge editor
+
+Если успевает.
+
+Teacher может создать вопросы вручную.
+
+UI:
+
+question prompt;
+type;
+options;
+mark correct option;
+explanation;
+points;
+add/remove question.
+26. MUHAMMAD ALI — ADMIN PART B
+
+Muhammad Ali отвечает за analytics/reporting/monitoring.
+
+26.1. Teacher Dashboard
+
+KPI cards:
+
+Students
+Active students
+Attempts
+Average accuracy
+Duels
+Challenges
+
+Charts:
+
+activity over time;
+accuracy by topic.
+
+Sections:
+
+Weak Topics;
+Top Students;
+Recent Activity.
+26.2. Analytics overview
+
+Фильтры:
+
+class;
+date range optional;
+subject optional.
+
+Показывает:
+
+total attempts;
+average score;
+average accuracy;
+XP earned;
+duel participation.
+26.3. Topic analytics
+
+Таблица:
+
+topic;
+subject;
+participants;
+attempts;
+avg accuracy;
+mastery;
+status.
+
+Weak topics выделяются.
+
+26.4. Topic analytics details
+
+Показывает:
+
+average accuracy;
+average score;
+number attempts;
+mastery distribution;
+students needing attention;
+strongest students;
+recent attempts.
+26.5. Student analytics
+
+Таблица:
+
+student;
+XP;
+level;
+streak;
+accuracy;
+completed;
+last active.
+
+Student details:
+
+summary cards;
+topic mastery;
+recent attempts;
+duel W/L/D.
+26.6. Teacher leaderboard
+
+Расширенная таблица класса.
+
+Показывает:
+
+rank;
+student;
+XP;
+completed challenges;
+accuracy;
+streak;
+duel wins.
+26.7. Activity feed
+
+События:
+
+student joined;
+challenge completed;
+duel won;
+teacher challenge created.
+
+Фильтры:
+
+event type;
+student optional.
+26.8. AI generation monitoring — optional
+
+Если останется время:
+
+generated count;
+failed count;
+jobs;
+error;
+retry button.
+27. API, КОТОРЫЙ НУЖЕН JAVODBEK ДО НАЧАЛА РАБОТЫ
+
+Zero должен первым зафиксировать контракты минимум для:
+
+Auth
+/auth/me
+/me/dashboard
+classes/join
+subjects/topics
+challenge generation/status
+challenge details
+attempt start
+answer
+finish
+duel create
+duel preview
+duel accept
+duel details
+leaderboard
+profile/stats
+
+Frontend может начать на mock data после фиксации JSON contracts, даже если реализация endpoints ещё дописывается.
+
+28. API, КОТОРЫЙ НУЖЕН ADMIN TEAM ДО НАЧАЛА РАБОТЫ
+
+Минимально зафиксировать:
+
+classes CRUD
+members
+subjects
+topics
+challenges
+teacher dashboard
+students analytics
+topic analytics
+activity
+reports overview
+29. ТРАНЗАКЦИОННАЯ ЗАЩИТА И КОНКУРЕНТНОСТЬ
+
+Это один из главных технических блоков проекта.
+
+29.1. Finish Attempt
+
+Риск:
+
+два HTTP-запроса finish одновременно.
+
+Без защиты:
+
+XP начислится дважды;
+completedChallenges +2;
+streak изменится дважды;
+ledger получит дубликаты.
+
+Требование:
+
+операция должна рассматриваться как единая бизнес-транзакция.
+
+В рамках одной защищённой операции:
+
+проверить Attempt;
+убедиться, что он не обработан;
+рассчитать результат;
+сохранить answers/result;
+создать XP ledger;
+обновить StudentStats;
+обновить TopicProgress;
+завершить Attempt;
+если duel — инициировать duel resolution.
+
+Ключ блокировки логически привязан к attempt/user.
+
+29.2. Accept Duel
+
+Риск:
+
+один shareCode одновременно открыли два человека.
+
+Без защиты оба могут стать opponent.
+
+Требование:
+
+в одной Serializable операции:
+
+прочитать duel;
+проверить WAITING;
+проверить expiry;
+проверить self-duel;
+закрепить opponent;
+создать opponent attempt;
+изменить статус ACTIVE.
+
+Только один запрос успешен.
+
+29.3. Complete Duel
+
+Риск:
+
+finish/retry/event приводит к повторному определению победителя и повторному bonus XP.
+
+Требование:
+
+Duel COMPLETED является terminal state.
+
+Winner XP ledger должен иметь уникальный source.
+
+29.4. Join Class
+
+Риск:
+
+double click/retry создаёт два membership.
+
+Требование:
+
+уникальность (classId, userId) + безопасное повторное поведение.
+
+29.5. XP Ledger
+
+XP нельзя просто делать:
+
+stats.totalXp += amount
+
+без записи причины.
+
+Каждое начисление должно иметь source.
+
+Это позволяет доказать жюри, что reward system защищена от повторных запросов.
+
+30. ТОЧНЫЕ БИЗНЕС-РАСЧЁТЫ
+
+В отдельном расчётном модуле должны находиться чистые детерминированные функции.
+
+Минимум:
+
+calculateAttemptScore
+calculateAccuracy
+calculateAttemptXp
+calculateLevel
+calculateStreak
+calculateTopicMastery
+resolveDuelWinner
+calculateDuelBonus
+calculateLeaderboardRankData
+calculateClassAnalytics
+
+Не размещать формулы отдельно в controller/frontend/admin.
+
+31. AI-ЛОГИКА
+
+AI используется только там, где реально повышает ценность.
+
+Must-have:
+
+генерация challenge по Topic.
+
+Input AI:
+
+subject;
+topic;
+description/context;
+difficulty;
+question count;
+language.
+
+Output должен логически соответствовать:
+
+title
+questions[]
+prompt
+type
+options[]
+correct option
+explanation
+points
+
+После AI response backend обязан:
+
+распарсить;
+валидировать;
+проверить количество вопросов;
+проверить количество correct options;
+запретить пустые варианты;
+сохранить только валидный challenge.
+
+Если AI ответ невалиден:
+
+одна повторная генерация optional;
+затем FAILED.
+32. BULLMQ JOBS
+
+Не требуется описывать внутреннюю реализацию, но с точки зрения продукта очередь нужна для:
+
+AI_GENERATE_CHALLENGE
+
+Вход:
+
+challengeId
+requestedById
+
+Результат:
+
+READY или FAILED.
+OPTIONAL: ANALYTICS_REFRESH
+
+Не must-have.
+
+Для hackathon analytics можно считать запросом/агрегатами.
+
+33. REDIS — ПРОДУКТОВЫЕ СЦЕНАРИИ
+
+Redis нужен минимум там, где его наличие оправдано:
+
+OTP/rate limit;
+AI generation rate limit;
+leaderboard cache;
+short-lived dashboard cache optional.
+
+Не делать Redis обязательным источником истины для XP.
+
+PostgreSQL — source of truth.
+
+34. SECURITY / ACCESS RULES
+
+Backend обязан проверять ownership/membership.
+
+Недостаточно проверить только JWT.
+
+Примеры:
+
+Student A не может:
+
+открыть attempt Student B;
+закончить attempt Student B;
+читать teacher analytics;
+редактировать Topic;
+принимать собственный Duel;
+вступить в архивированный класс.
+
+Teacher класса A не должен автоматически видеть класс B.
+
+Correct answers не должны попадать в student payload до finish.
+
+Нельзя принимать с клиента:
+
+score;
+XP;
+correctCount;
+winnerId;
+streak;
+rank;
+mastery.
+35. RATE LIMIT / ABUSE
+
+Must-have минимально:
+
+OTP:
+
+cooldown resend;
+max verify attempts.
+
+AI generation:
+
+ограничить количество активных generation jobs пользователя;
+запретить spam click создавать десятки challenges.
+
+Duel:
+
+shareCode должен быть достаточно непредсказуемым.
+36. EXTERNAL INTEGRATIONS
+36.1. LLM provider
+
+Нужен реальный provider либо mock/fallback.
+
+Варианты:
+
+Gemini API;
+OpenAI API;
+другой доступный structured-output LLM.
+
+Для hackathon критично заранее проверить:
+
+API key;
+quota;
+latency;
+доступность модели;
+формат structured output.
+
+Обязательно иметь fallback challenge fixture, чтобы demo не умер из-за AI API.
+
+36.2. OTP provider
+
+Для production нужен SMS/email provider.
+
+Для hackathon можно использовать:
+
+demo OTP;
+console/dev OTP;
+фиксированный код только в demo environment.
+
+Важно явно сказать жюри, что transport OTP замокан, а auth flow настоящий.
+
+36.3. Share
+
+Не требуется сторонний API.
+
+Использовать:
+
+copy URL;
+Web Share API при поддержке браузером.
+37. MVP — MUST HAVE ДЛЯ ДЕМО
+Backend
+
+Обязательно:
+
+OTP auth;
+access + refresh;
+roles;
+class;
+invite code;
+membership;
+subjects;
+topics;
+AI challenge generation;
+fallback challenge;
+questions;
+attempts;
+answer submission;
+atomic finish;
+score;
+XP;
+streak;
+topic progress;
+duel create;
+duel accept с защитой гонки;
+duel result;
+winner bonus;
+leaderboard;
+student dashboard;
+teacher dashboard;
+teacher topic analytics;
+единый error contract.
+Student React
+
+Обязательно:
+
+login;
+OTP;
+dashboard;
+join class;
+subjects/topics;
+challenge generation/start;
+question flow;
+result;
+XP/streak;
+Challenge Friend;
+accept duel;
+duel result;
+leaderboard;
+profile/basic stats.
+Teacher/Admin React
+
+Обязательно:
+
+teacher login;
+dashboard;
+class list;
+create class;
+invite code;
+student list;
+subjects;
+topics;
+generate challenge;
+challenges list;
+analytics overview;
+weak topics;
+student analytics;
+leaderboard;
+recent activity.
+38. ЕСЛИ ОСТАНЕТСЯ ВРЕМЯ
+
+Можно добавить:
+
+manual challenge editor;
+rematch;
+badges/achievements;
+daily quests;
+notification center;
+AI explanation after wrong answer;
+AI personalized recommendation;
+admin user blocking;
+AI job monitoring;
+retry generation;
+charts по date range;
+multiple teachers per class UI;
+teacher assignment deadlines;
+challenge expiration;
+push notifications;
+multilingual question generation;
+avatar customization.
+
+Не делать эти функции раньше must-have flow.
+
+39. ЧТО НЕ ДЕЛАТЬ НА ХАКАТОНЕ
+
+Не тратить время на:
+
+полноценный LMS;
+видеоуроки;
+загрузку больших PDF;
+OCR;
+RAG pipeline;
+vector database;
+сложный AI chat;
+voice tutor;
+free-text grading;
+parent role;
+school billing;
+real SMS integration, если она тормозит разработку;
+сложную систему permissions;
+production-grade notification infrastructure;
+десятки question types.
+
+Главный продукт должен быть полностью проходимым end-to-end.
+
+40. LIVE DEMO SCRIPT
+
+Демо желательно строить ровно вокруг одного сценария.
+
+Шаг 1 — Teacher
+
+Teacher открывает panel.
+
+Показывает:
+
+Class 9A;
+несколько учеников;
+Mathematics;
+topic “Quadratic Equations”.
+
+Нажимает Generate Challenge.
+
+AI создаёт 5 вопросов.
+
+Шаг 2 — Student A
+
+Student A открывает приложение.
+
+Dashboard:
+
+streak;
+XP;
+recommended topic.
+
+Открывает Mathematics → Quadratic Equations → challenge.
+
+Проходит 5 вопросов.
+
+Result:
+
+4/5;
+80%;
++68 XP;
+streak;
+mastery updated.
+
+Нажимает Challenge Friend.
+
+Получает ссылку.
+
+Шаг 3 — Student B
+
+Открывает ссылку.
+
+Видит:
+
+“Student A challenged you”.
+
+Accept.
+
+Проходит те же вопросы.
+
+Получает результат.
+
+Шаг 4 — Duel
+
+Система показывает:
+
+Student A: 800 points
+Student B: 1000 points
+
+Student B wins.
+
+Начисляется bonus XP.
+
+Шаг 5 — Leaderboard
+
+Открывается leaderboard.
+
+Позиции обновлены.
+
+Шаг 6 — Teacher analytics
+
+Возвращаемся в teacher panel.
+
+Dashboard показывает новую активность.
+
+Topic analytics обновилась.
+
+Teacher видит:
+
+кто прошёл;
+accuracy;
+weak/strong state;
+leaderboard.
+
+Это демонстрирует единый end-to-end продукт и работу всех четырёх участников команды.
+
+41. DEMO SEED DATA
+
+Для стабильного live-demo backend должен иметь seed/demo dataset.
+
+Минимум:
+
+Teacher:
+
+1 account.
+
+Students:
+
+5–8 accounts.
+
+Class:
+
+9A.
+
+Subjects:
+
+Mathematics
+English
+Physics
+
+Topics:
+
+Mathematics:
+
+Quadratic Equations
+Fractions
+Linear Functions
+
+English:
+
+Present Perfect
+Conditionals
+
+Physics:
+
+Newton's Laws
+Energy
+
+Нужно заранее иметь:
+
+несколько completed attempts;
+XP;
+leaderboard;
+topic progress;
+weak topic;
+recent activity.
+
+Тогда admin analytics выглядит наполненной ещё до live interaction.
+
+42. РИСКИ И НЕСТАНДАРТНАЯ ЛОГИКА
+Риск 1. AI API упал во время demo
+
+Решение продукта:
+
+fallback generation.
+
+Если provider недоступен, demo environment может использовать заранее подготовленный challenge по известной topic.
+
+Риск 2. AI вернул неправильный JSON
+
+Нельзя сохранять как есть.
+
+Нужна строгая server-side validation.
+
+Challenge становится READY только после полной проверки.
+
+Риск 3. Double finish
+
+Самая опасная бизнес-гонка.
+
+Последствия:
+
+duplicate XP;
+duplicate streak;
+corrupted leaderboard.
+
+Обязательная транзакционная защита.
+
+Риск 4. Race при Accept Duel
+
+Два пользователя могут одновременно принять challenge.
+
+Только один должен стать opponent.
+
+Обязательная транзакционная защита.
+
+Риск 5. Повторное начисление duel bonus
+
+Duel resolution должен быть идемпотентным.
+
+XpLedger должен защищать source от дублей.
+
+Риск 6. Timezone streak
+
+24 часа и следующий календарный день — не одно и то же.
+
+Нужно заранее выбрать timezone продукта и использовать календарную дату.
+
+Риск 7. Утечка correct answers
+
+Если /challenge/:id возвращает isCorrect, пользователь может открыть DevTools и увидеть ответы.
+
+Student DTO обязан исключать grading data.
+
+Риск 8. Client-side score
+
+Нельзя доверять score из браузера.
+
+Клиент отправляет только выбранные option IDs.
+
+Backend рассчитывает результат.
+
+Риск 9. Leaderboard consistency
+
+Leaderboard должен отражать server state.
+
+Для demo Redis cache либо инвалидируется после XP mutation, либо используется короткий TTL.
+
+Риск 10. Удаление сущностей
+
+Hard delete Topic/Challenge после attempts ломает историю.
+
+В MVP использовать archive semantics для сущностей с историческими данными.
+
+Риск 11. Маленький demo dataset
+
+Analytics с одним пользователем выглядит бессмысленно.
+
+Нужны seed attempts/stats до презентации.
+
+43. BACKEND ACCEPTANCE CRITERIA — ZERO
+
+Backend считается готовым для интеграции, когда можно выполнить следующий сценарий только через API:
+
+request OTP;
+verify;
+создать teacher;
+создать class;
+получить invite;
+student login;
+join class;
+teacher create subject;
+teacher create topic;
+generate challenge;
+дождаться READY;
+student start attempt;
+отправить ответы;
+finish;
+получить XP/streak;
+создать duel;
+second student accept;
+пройти;
+finish;
+получить winner;
+получить leaderboard;
+teacher получить dashboard;
+teacher получить topic analytics.
+
+Если этот flow работает, обе React-команды могут интегрироваться независимо.
+
+44. CLIENT ACCEPTANCE CRITERIA — JAVODBEK
+
+Client считается demo-ready, если пользователь без DevTools может:
+
+войти;
+попасть в класс;
+открыть dashboard;
+выбрать topic;
+получить/start challenge;
+ответить на вопросы;
+завершить;
+увидеть красивый result;
+создать duel;
+открыть duel другим аккаунтом;
+принять;
+пройти;
+увидеть winner;
+открыть leaderboard.
+
+Все loading/error/empty states не должны ломать layout.
+
+45. AZIZ ACCEPTANCE CRITERIA
+
+Готовая часть Aziz позволяет:
+
+войти teacher;
+увидеть classes;
+создать class;
+скопировать invite;
+открыть members;
+увидеть students;
+создать subject;
+создать topic;
+запустить generation;
+увидеть challenge READY;
+открыть challenge list.
+46. MUHAMMAD ALI ACCEPTANCE CRITERIA
+
+Готовая часть Muhammad Ali позволяет:
+
+открыть teacher dashboard;
+увидеть KPI;
+увидеть weak topics;
+увидеть top students;
+открыть analytics;
+открыть topic analytics;
+открыть student analytics;
+увидеть leaderboard;
+увидеть recent activity.
+47. ПАРАЛЛЕЛЬНАЯ РАБОТА КОМАНДЫ
+Этап 1 — Zero стартует первым
+
+Сначала фиксирует:
+
+entities;
+enums;
+error codes;
+request/response DTO;
+API paths;
+demo seed assumptions.
+
+Критически важно быстро зафиксировать контракт, а не ждать полной готовности backend.
+
+Этап 2 — Frontend teams стартуют по контрактам
+
+Javodbek:
+
+работает на mock JSON, полностью совпадающем с API.
+
+Aziz + Muhammad Ali:
+
+работают на тех же зафиксированных teacher contracts.
+
+Этап 3 — Backend закрывает critical path
+
+Порядок:
+
+auth;
+class/membership;
+subject/topic;
+challenge;
+attempt;
+XP/streak;
+duel;
+leaderboard;
+teacher analytics.
+Этап 4 — Интеграция
+
+Сначала интегрировать один golden path.
+
+Не пытаться одновременно подключить все страницы.
+
+Приоритет интеграции:
+
+Student login → Dashboard → Challenge → Result → Duel → Leaderboard.
+
+Затем:
+
+Teacher Dashboard → Topic analytics.
+
+48. РАЗДЕЛЕНИЕ ADMIN PANEL МЕЖДУ ДВУМЯ ЛЮДЬМИ
+
+Чтобы не было конфликтов:
+
+Aziz владеет routes:
+/classes
+/classes/:id
+/classes/:id/students
+/classes/:id/subjects
+/subjects/:id/topics
+/challenges
+/challenges/:id
+Muhammad Ali владеет routes:
+/dashboard
+/analytics
+/analytics/topics
+/analytics/topics/:id
+/analytics/students
+/analytics/students/:id
+/leaderboard
+/activity
+
+Общие компоненты:
+
+AppShell
+Sidebar
+Topbar
+Button
+Card
+Table
+Modal
+API client
+
+должны быть согласованы в начале и затем не хаотично переписываться обоими.
+
+49. UX-ПРИНЦИПЫ ДЛЯ ДЕМО
+
+Student app:
+
+premium;
+gamified, но не детский;
+минимум текста;
+крупные CTA;
+сильный result screen;
+mobile-friendly;
+leaderboard и duel должны выглядеть социально.
+
+Teacher panel:
+
+спокойная SaaS-аналитика;
+desktop-first;
+высокая плотность полезных данных;
+clean tables;
+KPI cards;
+charts только там, где реально дают смысл.
+
+Не использовать generic AI gradient на каждом экране.
+
+AI должен ощущаться как функция продукта, а не весь бренд.
+
+50. КЛЮЧЕВЫЕ МЕТРИКИ ПРОДУКТА
+
+Для pitch:
+
+Engagement
+completed challenges;
+challenges per active student;
+streak;
+duel participation.
+Learning
+average accuracy;
+mastery score;
+weak topics;
+accuracy trend.
+Virality
+duels created;
+duels accepted;
+duel acceptance rate.
+Teacher value
+active students;
+class weak topics;
+student participation;
+completion.
+
+Не обязательно реализовывать все как отдельные charts, но data model/API не должны мешать их получить.
+
+51. ЧТО ПОКАЗАТЬ ЖЮРИ КАК ТЕХНИЧЕСКУЮ СИЛЬНУЮ СТОРОНУ
+
+Не делать презентацию только про AI.
+
+Подчеркнуть:
+
+AI-generated structured learning content.
+Server-authoritative scoring.
+Transaction-safe XP.
+Race-safe duel acceptance.
+Idempotent attempt completion.
+Auditable XP ledger.
+Real-time-feeling leaderboard.
+Teacher analytics на тех же данных.
+Один backend обслуживает два независимых продукта.
+AI failure fallback для стабильности.
+
+Это показывает, что проект — не UI поверх LLM.
+
+52. TESTING PRIORITY — VITEST
+
+Хотя это hackathon, минимальные тесты особенно ценны для расчётной/конкурентной логики.
+
+Приоритет:
+
+Unit
+score;
+XP;
+level;
+streak;
+mastery;
+duel winner.
+Critical integration/business tests
+finish cannot award XP twice;
+same duel cannot be accepted twice;
+duel winner bonus cannot be awarded twice;
+student cannot finish another student's attempt;
+student payload does not expose correct answers;
+join class does not duplicate membership.
+
+Не тратить время на высокий coverage обычного CRUD.
+
+53. ГОТОВНОСТЬ К ПРЕЗЕНТАЦИИ
+
+Перед demo проверить:
+
+AI key работает;
+fallback работает;
+seed работает;
+два student аккаунта готовы;
+teacher аккаунт готов;
+invite code известен;
+class populated;
+leaderboard populated;
+weak topic существует;
+browser tabs заранее открыты;
+duel link работает;
+refresh страницы не ломает auth;
+double click Finish не начисляет XP дважды;
+admin dashboard не пустой.
+54. ЧТО УТОЧНИТЬ У КОМАНДЫ ПЕРЕД СТАРТОМ
+
+Перед кодингом за 5–10 минут принять следующие решения и больше их не менять во время hackathon:
+
+Название продукта. Оставляем Maktab AI Arena или выбираем финальный бренд.
+Язык интерфейса. Uzbek, Russian, English или один основной язык для demo.
+OTP identifier. Телефон или email. Для hackathon выбрать только один основной вариант.
+Timezone streak. Рекомендуется зафиксировать Asia/Tashkent.
+AI provider. Какой API key гарантированно доступен на мероприятии.
+Demo fallback. Какие 2–3 темы обязательно имеют локальные fallback questions.
+Question count. Рекомендуется фиксировать 5 вопросов для demo.
+Teacher vs Admin. Для MVP рекомендуется делать teacher panel основной, а super-admin оставить optional.
+Duel expiry. Например 24 часа.
+Weekly leaderboard. Когда начинается неделя; рекомендуется понедельник.
+Можно ли ученику состоять в нескольких классах. Архитектура это допускает; UI MVP может работать с одним selected class.
+Design system. Команда должна быстро согласовать typography, radius, spacing и базовые компоненты, особенно для общей admin panel.
+55. ФИНАЛЬНЫЙ SCOPE
+
+Если времени мало, проект нельзя сокращать до AI-чата.
+
+Сокращать нужно периферийные функции, сохраняя главный цикл:
+
+Teacher/Topic → AI Challenge → Student Attempt → Server Score + XP → Challenge Friend → Duel → Leaderboard → Teacher Analytics.
+
+Именно этот цикл является продуктом.
+
+Если он работает полностью, команда демонстрирует одновременно:
+
+AI;
+полезность для школы;
+вовлечённость ученика;
+вирусность;
+сложную backend-логику;
+конкурентные операции;
+статистику;
+полноценный student React;
+полноценный teacher React;
+понятную бизнес-ценность.
+
+Это и должно быть центральным MVP хакатона.
+"""
+
+out = "/mnt/data/Maktab_AI_Arena_FULL_TZ.md"
+pypandoc.convert_text(content, "md", format="md", outputfile=out, extra_args=["--standalone"])
+print(out)
+
+Да. Ниже уже готовое ТЗ целиком — с backend-контрактом, моделью данных, конкурентными операциями, XP/streak/duel-логикой, клиентским React, разделением админки между Aziz и Muhammad Ali, MVP и demo flow.
+
+Попытка упаковать его в скачиваемый файл сейчас упала на создании файла. Могу следующим сообщением повторно собрать его именно как один .md или .docx файл для скачивания.
