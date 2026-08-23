@@ -337,6 +337,20 @@ class AiChatService:
                     last_error = exc
 
         assert last_error is not None
+        rephrased = self._safe_academic_rephrase(content, last_error)
+        if rephrased is not None:
+            for model in self.settings.agentrouter_chat_models:
+                try:
+                    response = await self._request_provider(
+                        client,
+                        [{"role": "user", "content": rephrased}],
+                        model=model,
+                    )
+                    if self._has_text_reply(response):
+                        logger.info("ai_chat_safe_academic_rephrase_succeeded", model=model)
+                        return response
+                except AIClientError as exc:
+                    last_error = exc
         raise last_error
 
     @staticmethod
@@ -375,6 +389,37 @@ class AiChatService:
         return (
             "Xabar tasodifan yuborilganga o'xshaydi. O'quv savoli yoki mavzuni yozing — "
             'masalan: "Kasrlarni sodda tushuntir".'
+        )
+
+    @staticmethod
+    def _safe_academic_rephrase(content: str, error: AIClientError) -> str | None:
+        if error.status_code != 400:
+            return None
+        lowered = content.casefold()
+        topics = (
+            (("algebra",), "algebra"),
+            (("geometr",), "geometry"),
+            (("matemat",), "mathematics"),
+            (("fizika", "physics"), "physics"),
+            (("kimyo", "chemistry"), "chemistry"),
+            (("biolog",), "biology"),
+            (("fotosintez",), "photosynthesis"),
+            (("tarix", "history"), "history"),
+            (("ingliz", "english"), "English language"),
+        )
+        topic = next(
+            (
+                normalized
+                for markers, normalized in topics
+                if any(marker in lowered for marker in markers)
+            ),
+            None,
+        )
+        if topic is None:
+            return None
+        return (
+            f"Help a school student learn {topic}. Reply in simple Uzbek. "
+            "Give a concise explanation, one example, and a practical first exercise."
         )
 
     @staticmethod

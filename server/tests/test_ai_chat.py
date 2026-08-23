@@ -339,8 +339,8 @@ async def test_ai_chat_switches_model_after_empty_primary_response(
 
     async def complete(_self, _messages, **kwargs):
         attempted_models.append(kwargs["model"])
-        if kwargs["model"] == "claude-opus-5":
-            return ChatCompletionResponse.model_validate({"model": "claude-opus-5", "choices": []})
+        if kwargs["model"] == "gpt-5.6-sol":
+            return ChatCompletionResponse.model_validate({"model": "gpt-5.6-sol", "choices": []})
         return ChatCompletionResponse.model_validate(
             {
                 "model": kwargs["model"],
@@ -371,7 +371,58 @@ async def test_ai_chat_switches_model_after_empty_primary_response(
 
     assert response.status_code == 201
     assert response.json()["data"]["fallback_used"] is False
-    assert attempted_models == ["claude-opus-5", "gpt-5.6-sol"]
+    assert attempted_models == ["gpt-5.6-sol", "claude-opus-5"]
+
+
+@pytest.mark.asyncio
+async def test_ai_chat_rephrases_blocked_safe_uzbek_school_topic(client: AsyncClient, monkeypatch):
+    attempted: list[tuple[str, str]] = []
+
+    async def complete(_self, messages, **kwargs):
+        prompt = messages[-1]["content"]
+        attempted.append((kwargs["model"], prompt))
+        if "bugun algebra" in prompt:
+            raise AIClientError(
+                AIClientErrorCode.CLIENT_ERROR,
+                "content-blocked",
+                status_code=400,
+            )
+        return ChatCompletionResponse.model_validate(
+            {
+                "model": kwargs["model"],
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Algebrani o'rganishni oddiy tenglamalardan boshlaymiz.",
+                        }
+                    }
+                ],
+            }
+        )
+
+    async def close(_self):
+        return None
+
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.chat_completions", complete)
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.close", close)
+    headers = await auth_headers(client, "chat-uzbek-topic-rephrase@demo.local")
+    created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)
+    conversation_id = created.json()["data"]["id"]
+    response = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "salom, bugun algebra organmoqchiman"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["data"]["fallback_used"] is False
+    assert [model for model, _prompt in attempted[:3]] == [
+        "gpt-5.6-sol",
+        "claude-opus-5",
+        "claude-opus-4-8",
+    ]
+    assert "Reply in simple Uzbek" in attempted[3][1]
 
 
 @pytest.mark.asyncio

@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     ai_chat_max_response_tokens: int = Field(default=800, ge=64, le=4000)
     ai_chat_max_response_chars: int = Field(default=12000, ge=500, le=50000)
     ai_chat_model_timeout_seconds: float = Field(default=15.0, ge=5.0, le=60.0)
+    ai_chat_primary_model: str = "gpt-5.6-sol"
 
     demo_question_count: int = Field(default=5, ge=5, le=10)
     duel_expiry_hours: int = Field(default=24, ge=1)
@@ -137,6 +138,7 @@ class Settings(BaseSettings):
     @property
     def agentrouter_chat_models(self) -> tuple[str, ...]:
         models = [
+            self.ai_chat_primary_model,
             self.agentrouter_model,
             *(model.strip() for model in self.agentrouter_fallback_models.split(",")),
         ]
