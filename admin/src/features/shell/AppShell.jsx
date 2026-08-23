@@ -57,7 +57,7 @@ export function AppShell() {
       case 'classes':
       case 'subjects':
       case 'challenges':
-        return <ClassesPage key={`classes-${refreshTrigger}`} onNavigate={navigateTo} />
+        return <ClassesPage key={`classes-${currentRoute}-${refreshTrigger}`} initialTab={currentRoute} onNavigate={navigateTo} />
       default:
         return <DashboardPage key={`dash-${refreshTrigger}`} onNavigate={navigateTo} />
     }
