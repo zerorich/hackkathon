@@ -1,122 +1,188 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { AuthProvider, useAuth } from './stores/AuthContext'
+import { ClassProvider } from './stores/ClassContext'
+import { Navbar } from './features/shell/Navbar'
+import { LoginView } from './features/auth/LoginView'
+import { OnboardingModal } from './features/auth/OnboardingModal'
+import { DashboardPage } from './features/dashboard/DashboardPage'
+import { SubjectsPage } from './features/curriculum/SubjectsPage'
+import { TopicDetailPage } from './features/curriculum/TopicDetailPage'
+import { ChallengeIntroModal } from './features/attempt/ChallengeIntroModal'
+import { AttemptFlowPage } from './features/attempt/AttemptFlowPage'
+import { ResultPage } from './features/attempt/ResultPage'
+import { DuelsPage } from './features/duels/DuelsPage'
+import { DuelAcceptPage } from './features/duels/DuelAcceptPage'
+import { LeaderboardPage } from './features/leaderboard/LeaderboardPage'
+import { ProfilePage } from './features/profile/ProfilePage'
+import { Loader2 } from 'lucide-react'
 
-function App() {
-  const [count, setCount] = useState(0)
+function StudentApp() {
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const [currentRoute, setCurrentRoute] = useState('dashboard')
+
+  // Practice modal state
+  const [practiceTopic, setPracticeTopic] = useState(null) // { id, title, challengeId }
+  const [activeAttemptId, setActiveAttemptId] = useState(null)
+  const [activeResult, setActiveResult] = useState(null)
+  const [acceptDuelCode, setAcceptDuelCode] = useState(null)
+
+  const navigateTo = (route) => {
+    setCurrentRoute(route)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleStartPractice = (topicId, topicTitle, challengeId = null) => {
+    setPracticeTopic({ id: topicId, title: topicTitle, challengeId })
+  }
+
+  const handleStartAttempt = (attemptId) => {
+    setActiveAttemptId(attemptId)
+    navigateTo(`attempt-${attemptId}`)
+  }
+
+  const handleFinishAttempt = (result) => {
+    setActiveResult(result)
+    navigateTo('result')
+  }
+
+  const handleAcceptDuel = (shareCode) => {
+    setAcceptDuelCode(shareCode)
+    navigateTo(`duel-accept-${shareCode}`)
+  }
+
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'var(--bg-app)',
+          gap: '16px',
+        }}
+      >
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+          Entering Maktab AI Arena...
+        </span>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView />
+  }
+
+  const renderPage = () => {
+    // Attempt flow
+    if (currentRoute.startsWith('attempt-') && activeAttemptId) {
+      return (
+        <AttemptFlowPage
+          attemptId={activeAttemptId}
+          onFinish={handleFinishAttempt}
+          onCancel={() => navigateTo('dashboard')}
+        />
+      )
+    }
+
+    // Result screen
+    if (currentRoute === 'result' && activeResult) {
+      return (
+        <ResultPage
+          result={activeResult}
+          onDone={() => navigateTo('dashboard')}
+          onPracticeAgain={() => navigateTo('subjects')}
+        />
+      )
+    }
+
+    // Duel accept page
+    if (currentRoute.startsWith('duel-accept-') && acceptDuelCode) {
+      return (
+        <DuelAcceptPage
+          shareCode={acceptDuelCode}
+          onStartAttempt={handleStartAttempt}
+          onBack={() => navigateTo('duels')}
+        />
+      )
+    }
+
+    // Topic detail
+    if (currentRoute.startsWith('subjects-topic-')) {
+      const topicId = currentRoute.replace('subjects-topic-', '')
+      return (
+        <TopicDetailPage
+          topicId={topicId}
+          onNavigate={navigateTo}
+          onStartPractice={handleStartPractice}
+        />
+      )
+    }
+
+    // Subjects with preselected subject
+    if (currentRoute.startsWith('subjects-')) {
+      const subjectId = currentRoute.replace('subjects-', '')
+      return (
+        <SubjectsPage
+          selectedSubjectId={subjectId}
+          onNavigate={navigateTo}
+          onStartPractice={handleStartPractice}
+        />
+      )
+    }
+
+    switch (currentRoute) {
+      case 'dashboard':
+        return <DashboardPage onNavigate={navigateTo} onStartPractice={handleStartPractice} />
+      case 'subjects':
+        return <SubjectsPage onNavigate={navigateTo} onStartPractice={handleStartPractice} />
+      case 'duels':
+        return <DuelsPage onNavigate={navigateTo} onAcceptDuel={handleAcceptDuel} />
+      case 'leaderboard':
+        return <LeaderboardPage />
+      case 'profile':
+        return <ProfilePage onNavigate={navigateTo} />
+      default:
+        return <DashboardPage onNavigate={navigateTo} onStartPractice={handleStartPractice} />
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app-container">
+      {/* Top Navigation */}
+      <Navbar currentRoute={currentRoute} onNavigate={navigateTo} />
 
-      <div className="ticks"></div>
+      {/* Main Content Area */}
+      <main className="main-content">{renderPage()}</main>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {/* Onboarding modal if not completed */}
+      {user && !user.onboarding_completed && (
+        <OnboardingModal isOpen={true} onClose={() => {}} />
+      )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      {/* Challenge practice generator modal */}
+      {practiceTopic && (
+        <ChallengeIntroModal
+          isOpen={true}
+          topicId={practiceTopic.id}
+          topicTitle={practiceTopic.title}
+          challengeId={practiceTopic.challengeId}
+          onClose={() => setPracticeTopic(null)}
+          onStartAttempt={handleStartAttempt}
+        />
+      )}
+    </div>
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <ClassProvider>
+        <StudentApp />
+      </ClassProvider>
+    </AuthProvider>
+  )
+}
