@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+RegisterRole = Literal["STUDENT", "TEACHER"]
+
 
 class APIModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -17,6 +19,13 @@ class OtpRequestBody(BaseModel):
 class OtpVerifyBody(BaseModel):
     identifier: str = Field(min_length=3, max_length=255)
     code: str = Field(min_length=4, max_length=10)
+    password: str | None = Field(default=None, min_length=4, max_length=128)
+    role: RegisterRole | None = None
+
+
+class LoginBody(BaseModel):
+    identifier: str = Field(min_length=3, max_length=255)
+    password: str = Field(min_length=4, max_length=128)
 
 
 class RefreshBody(BaseModel):
@@ -27,6 +36,7 @@ class ProfileUpdateBody(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=255)
     avatar_url: str | None = None
     onboarding_completed: bool | None = None
+    password: str | None = Field(default=None, min_length=4, max_length=128)
 
 
 class UserOut(APIModel):
@@ -37,6 +47,7 @@ class UserOut(APIModel):
     avatar_url: str | None
     status: str
     onboarding_completed: bool
+    has_password: bool = False
 
 
 class AuthTokensOut(APIModel):

@@ -3,8 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from server.api.deps import CurrentUser, DbSession
-from server.api.schemas import OtpRequestBody, OtpVerifyBody, ProfileUpdateBody, RefreshBody
+from server.api.schemas import LoginBody, OtpRequestBody, OtpVerifyBody, ProfileUpdateBody, RefreshBody
 from server.core.errors import success_response
+from server.core.security import hash_password
 from server.services.domain import AuthService
 
 router = APIRouter(tags=["auth"])
@@ -18,7 +19,15 @@ async def otp_request(body: OtpRequestBody, db: DbSession):
 
 @router.post("/otp/verify")
 async def otp_verify(body: OtpVerifyBody, db: DbSession):
-    data = await AuthService(db).verify_otp(body.identifier, body.code)
+    data = await AuthService(db).verify_otp(
+        body.identifier, body.code, password=body.password, role=body.role
+    )
+    return success_response(data)
+
+
+@router.post("/login")
+async def login(body: LoginBody, db: DbSession):
+    data = await AuthService(db).login(body.identifier, body.password)
     return success_response(data)
 
 
@@ -48,5 +57,7 @@ async def update_me(body: ProfileUpdateBody, user: CurrentUser, db: DbSession):
         user.avatar_url = body.avatar_url
     if body.onboarding_completed is not None:
         user.onboarding_completed = body.onboarding_completed
+    if body.password is not None:
+        user.password_hash = hash_password(body.password)
     await db.flush()
     return success_response(AuthService._user_dict(user))

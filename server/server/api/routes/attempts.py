@@ -31,7 +31,7 @@ from server.models.entities import (
     Topic,
     duel_expires_at,
 )
-from server.services.domain import AttemptService, MembershipService
+from server.services.domain import AttemptService, DuelService, MembershipService
 
 router = APIRouter(tags=["attempts"])
 Student = Annotated[CurrentUser, require_roles(UserRole.STUDENT)]
@@ -264,3 +264,9 @@ async def create_duel(attempt_id: str, user: Student, db: DbSession):
             "share_path": f"/duel/{duel.share_code}",
         }
     )
+
+
+@router.post("/attempts/{attempt_id}/duels/bot")
+async def create_bot_duel(attempt_id: str, user: Student, db: DbSession):
+    duel = await DuelService(db).create_bot_duel(user, attempt_id)
+    return success_response({"duel_id": duel.id})

@@ -24,6 +24,23 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+_PASSWORD_ITERATIONS = 200_000
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), _PASSWORD_ITERATIONS)
+    return f"{salt}${derived.hex()}"
+
+
+def verify_password(password: str, stored: str | None) -> bool:
+    if not stored or "$" not in stored:
+        return False
+    salt, expected = stored.split("$", 1)
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), _PASSWORD_ITERATIONS)
+    return hmac.compare_digest(derived.hex(), expected)
+
+
 def generate_refresh_token() -> str:
     return secrets.token_urlsafe(48)
 

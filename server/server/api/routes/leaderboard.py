@@ -16,7 +16,7 @@ async def class_leaderboard(
     class_id: str,
     user: CurrentUser,
     db: DbSession,
-    period: Annotated[Literal["week", "all"], Query()] = "all",
+    period: Annotated[Literal["week", "month", "all"], Query()] = "all",
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ):
     await MembershipService(db).get_class_for_user(user, class_id)

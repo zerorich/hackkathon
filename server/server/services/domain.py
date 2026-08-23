@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -30,9 +31,11 @@ from server.core.security import (
     create_access_token,
     generate_refresh_token,
     hash_otp,
+    hash_password,
     hash_token,
     refresh_expires_at,
     verify_otp,
+    verify_password,
 )
 from server.core.settings import Settings, get_settings
 from server.db.concurrency import advisory_lock, integrity_savepoint
@@ -141,7 +144,14 @@ class AuthService:
         )
         return {"sent": True, "demo_code": code if self.settings.otp_demo_mode else None}
 
-    async def verify_otp(self, identifier: str, code: str) -> dict:
+    async def verify_otp(
+        self,
+        identifier: str,
+        code: str,
+        *,
+        password: str | None = None,
+        role: str | None = None,
+    ) -> dict:
         identifier = identifier.strip().lower()
         verify_key = f"otp:verify:{identifier}"
         verify_attempts = await self.cache.incr(
@@ -178,7 +188,10 @@ class AuthService:
             raise AppError(ERROR_CODES.OTP_INVALID, "Invalid OTP", status_code=401)
 
         challenge.consumed_at = utcnow()
-        user, is_new_user = await self._get_or_create_user(identifier)
+        user, is_new_user = await self._get_or_create_user(identifier, role=role)
+        if is_new_user and password:
+            user.password_hash = hash_password(password)
+            await self.db.flush()
         if user.status == UserStatus.BLOCKED:
             raise AppError(ERROR_CODES.USER_BLOCKED, "User is blocked", status_code=403)
 
@@ -186,6 +199,24 @@ class AuthService:
         await self.cache.delete(verify_key)
         tokens["is_new_user"] = is_new_user
         return tokens
+
+    async def login(self, identifier: str, password: str) -> dict:
+        identifier = identifier.strip().lower()
+        result = await self.db.execute(select(User).where(User.identifier == identifier))
+        user = result.scalar_one_or_none()
+        if user is None:
+            raise AppError(ERROR_CODES.INVALID_CREDENTIALS, "Login yoki parol noto'g'ri", status_code=401)
+        if user.status == UserStatus.BLOCKED:
+            raise AppError(ERROR_CODES.USER_BLOCKED, "User is blocked", status_code=403)
+        if not user.password_hash:
+            raise AppError(
+                ERROR_CODES.PASSWORD_NOT_SET,
+                "Bu hisobda parol o'rnatilmagan — kod orqali kiring",
+                status_code=409,
+            )
+        if not verify_password(password, user.password_hash):
+            raise AppError(ERROR_CODES.INVALID_CREDENTIALS, "Login yoki parol noto'g'ri", status_code=401)
+        return await self._issue_tokens(user)
 
     async def refresh(self, refresh_token: str) -> dict:
         token_hash = hash_token(refresh_token)
@@ -268,21 +299,23 @@ class AuthService:
             family_session.revoked_at = now
         await self.db.flush()
 
-    async def _get_or_create_user(self, identifier: str) -> tuple[User, bool]:
+    async def _get_or_create_user(self, identifier: str, *, role: str | None = None) -> tuple[User, bool]:
         result = await self.db.execute(select(User).where(User.identifier == identifier))
         user = result.scalar_one_or_none()
         if user is None:
-            role = UserRole.STUDENT
+            resolved_role = UserRole.STUDENT
             if self.settings.is_development and self.settings.otp_demo_mode:
                 demo_roles = {
                     "teacher@demo.local": UserRole.TEACHER,
                     "admin@demo.local": UserRole.ADMIN,
                 }
-                role = demo_roles.get(identifier, UserRole.STUDENT)
+                resolved_role = demo_roles.get(identifier, UserRole.STUDENT)
+            if role in (UserRole.STUDENT, UserRole.TEACHER):
+                resolved_role = role
             user = User(
                 identifier=identifier,
                 display_name=identifier.split("@")[0],
-                role=role,
+                role=resolved_role,
             )
             self.db.add(user)
             await self.db.flush()
@@ -317,6 +350,7 @@ class AuthService:
             "avatar_url": user.avatar_url,
             "status": user.status,
             "onboarding_completed": user.onboarding_completed,
+            "has_password": bool(user.password_hash),
         }
 
     @staticmethod
@@ -957,6 +991,167 @@ class DuelService:
             await self.db.flush()
             return duel, opponent_attempt, challenge
 
+    BOT_IDENTIFIER = "bot@zehna"
+    BOT_ACCURACY_BY_DIFFICULTY = {"EASY": 0.88, "MEDIUM": 0.72, "HARD": 0.55}
+
+    async def _get_or_create_bot(self) -> User:
+        result = await self.db.execute(select(User).where(User.identifier == self.BOT_IDENTIFIER))
+        bot = result.scalar_one_or_none()
+        if bot is None:
+            bot = User(
+                identifier=self.BOT_IDENTIFIER,
+                display_name="Zehna Bot",
+                avatar_url="dragon",
+                role=UserRole.STUDENT,
+                onboarding_completed=True,
+            )
+            self.db.add(bot)
+            await self.db.flush()
+        return bot
+
+    async def create_bot_duel(self, user: User, attempt_id: str) -> Duel:
+        attempt = await self.db.get(
+            Attempt,
+            attempt_id,
+            options=[selectinload(Attempt.challenge).selectinload(Challenge.questions)],
+        )
+        if attempt is None:
+            raise AppError(ERROR_CODES.ATTEMPT_NOT_FOUND, "Attempt not found", status_code=404)
+        if attempt.user_id != user.id:
+            raise AppError(ERROR_CODES.FORBIDDEN, "Not your attempt", status_code=403)
+        if attempt.status != AttemptStatus.COMPLETED:
+            raise AppError(
+                ERROR_CODES.INVALID_ATTEMPT_STATE,
+                "Attempt must be completed before creating a duel",
+                status_code=409,
+            )
+        existing = await self.db.execute(select(Duel).where(Duel.creator_attempt_id == attempt.id))
+        if existing.scalar_one_or_none():
+            raise AppError(
+                ERROR_CODES.DUEL_ALREADY_EXISTS,
+                "Duel already exists for this attempt",
+                status_code=409,
+            )
+
+        bot = await self._get_or_create_bot()
+        questions = attempt.challenge.questions
+        total_points = sum(q.points for q in questions) or 1
+        p_correct = self.BOT_ACCURACY_BY_DIFFICULTY.get(attempt.challenge.difficulty, 0.7)
+        correctness = [random.random() < p_correct for _ in questions]
+        earned = sum(q.points for q, is_correct in zip(questions, correctness) if is_correct)
+        correct_count = sum(correctness)
+        accuracy = calculate_accuracy(correct_count=correct_count, total_questions=len(questions))
+        score = calculate_attempt_score(earned_points=earned, total_points=total_points)
+        bot_xp = calculate_attempt_xp(accuracy_percent=accuracy)
+        duration = random.randint(20, 90)
+
+        now = utcnow()
+        bot_attempt = Attempt(
+            challenge_id=attempt.challenge_id,
+            user_id=bot.id,
+            class_id=attempt.class_id,
+            status=AttemptStatus.COMPLETED,
+            score=score,
+            correct_count=correct_count,
+            incorrect_count=len(questions) - correct_count,
+            total_questions=len(questions),
+            accuracy_percent=accuracy,
+            xp_awarded=bot_xp,
+            duration_seconds=duration,
+            started_at=now,
+            completed_at=now,
+        )
+        self.db.add(bot_attempt)
+        await self.db.flush()
+
+        duel = Duel(
+            class_id=attempt.class_id,
+            challenge_id=attempt.challenge_id,
+            creator_attempt_id=attempt.id,
+            creator_id=user.id,
+            opponent_id=bot.id,
+            opponent_attempt_id=bot_attempt.id,
+            status=DuelStatus.ACCEPTED,
+            accepted_at=now,
+            expires_at=now,
+        )
+        self.db.add(duel)
+        await self.db.flush()
+        bot_attempt.duel_id = duel.id
+
+        from server.services.calculations import DuelParticipantResult
+
+        winner = resolve_duel_winner(
+            DuelParticipantResult(
+                user_id=user.id,
+                score=attempt.score or 0,
+                correct_count=attempt.correct_count or 0,
+                duration_seconds=attempt.duration_seconds or 999999,
+            ),
+            DuelParticipantResult(
+                user_id=bot.id,
+                score=bot_attempt.score or 0,
+                correct_count=bot_attempt.correct_count or 0,
+                duration_seconds=bot_attempt.duration_seconds or 999999,
+            ),
+        )
+        duel.status = DuelStatus.COMPLETED
+        duel.completed_at = now
+        duel.updated_at = now
+        if winner == "DRAW":
+            duel.winner_id = None
+            duel.result_type = "DRAW"
+        elif winner == user.id:
+            duel.winner_id = user.id
+            duel.result_type = "CHALLENGER_WIN"
+            bonus = calculate_duel_bonus()
+            self.db.add(
+                XpLedger(
+                    user_id=user.id,
+                    class_id=attempt.class_id,
+                    source_type=XpSourceType.DUEL_WIN,
+                    source_id=duel.id,
+                    amount=bonus,
+                )
+            )
+            await AttemptService(self.db)._update_stats(
+                user.id, attempt.class_id, bonus, now, skip_attempt_increment=True
+            )
+            stats_result = await self.db.execute(
+                select(StudentStats).where(
+                    StudentStats.user_id == user.id, StudentStats.class_id == attempt.class_id
+                )
+            )
+            winner_stats = stats_result.scalar_one_or_none()
+            if winner_stats:
+                winner_stats.duels_won += 1
+        else:
+            duel.winner_id = bot.id
+            duel.result_type = "OPPONENT_WIN"
+            loser_result = await self.db.execute(
+                select(StudentStats).where(
+                    StudentStats.user_id == user.id, StudentStats.class_id == attempt.class_id
+                )
+            )
+            loser_stats = loser_result.scalar_one_or_none()
+            if loser_stats:
+                loser_stats.duels_lost += 1
+
+        self.db.add(
+            ActivityEvent(
+                class_id=attempt.class_id,
+                user_id=user.id,
+                event_type=ActivityEventType.DUEL_COMPLETED,
+                payload=json.dumps(
+                    {"duel_id": duel.id, "winner_id": duel.winner_id, "result_type": duel.result_type, "bot": True}
+                ),
+            )
+        )
+        await get_cache().delete(f"leaderboard:{attempt.class_id}:all")
+        await get_cache().delete(f"leaderboard:{attempt.class_id}:week")
+        await self.db.flush()
+        return duel
+
 
 class LeaderboardService:
     def __init__(self, db: AsyncSession, settings: Settings | None = None) -> None:
@@ -971,7 +1166,13 @@ class LeaderboardService:
         cache_key = f"leaderboard:{class_id}:{period}"
         base_entries = await self.cache.get(cache_key)
         if base_entries is None:
-            since = self._week_start() if period == "week" else None
+            since = (
+                self._week_start()
+                if period == "week"
+                else self._month_start()
+                if period == "month"
+                else None
+            )
             period_xp = None
             if since is not None:
                 period_xp = (
@@ -1057,3 +1258,11 @@ class LeaderboardService:
         now = utcnow().astimezone(tz)
         start = now - timedelta(days=now.weekday())
         return start.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(ZoneInfo("UTC"))
+
+    def _month_start(self):
+        from zoneinfo import ZoneInfo
+
+        tz = ZoneInfo(self.settings.app_timezone)
+        now = utcnow().astimezone(tz)
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return start.astimezone(ZoneInfo("UTC"))
