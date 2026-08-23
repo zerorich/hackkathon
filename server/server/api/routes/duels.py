@@ -15,7 +15,16 @@ from server.api.mappers import (
 )
 from server.core.enums import DuelStatus, UserRole
 from server.core.errors import ERROR_CODES, AppError, success_response
-from server.models.entities import Attempt, Challenge, Duel, Question, Topic, User, utcnow
+from server.models.entities import (
+    Attempt,
+    Challenge,
+    Duel,
+    Question,
+    Topic,
+    User,
+    is_before_utc,
+    utcnow,
+)
 from server.services.domain import AuthService, DuelService, MembershipService
 
 router = APIRouter(tags=["duels"])
@@ -44,7 +53,7 @@ async def _load_challenge(db: DbSession, challenge_id: str) -> Challenge | None:
 @router.get("/code/{share_code}")
 async def preview_duel(share_code: str, user: CurrentUser, db: DbSession):
     duel = await _get_duel_by_code(db, share_code)
-    if duel.expires_at < utcnow() and duel.status == DuelStatus.PENDING:
+    if is_before_utc(duel.expires_at, utcnow()) and duel.status == DuelStatus.PENDING:
         duel.status = DuelStatus.EXPIRED
         await db.flush()
         raise AppError(ERROR_CODES.DUEL_EXPIRED, "Duel expired", status_code=410)

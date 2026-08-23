@@ -62,4 +62,4 @@ def decode_access_token(token: str, settings: Settings | None = None) -> dict[st
 
 def refresh_expires_at(settings: Settings | None = None) -> datetime:
     settings = settings or get_settings()
-    return datetime.now(UTC) + timedelta(days=settings.jwt_refresh_ttl_days)
+    return datetime.now(UTC).replace(tzinfo=None) + timedelta(days=settings.jwt_refresh_ttl_days)

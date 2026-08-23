@@ -42,6 +42,24 @@ def utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def normalize_utc_naive(value: datetime) -> datetime:
+    """Normalize SQLite-naive and PostgreSQL-aware timestamps for Python comparisons."""
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
+
+
+def is_before_utc(left: datetime, right: datetime) -> bool:
+    return normalize_utc_naive(left) < normalize_utc_naive(right)
+
+
+def elapsed_seconds(start: datetime, end: datetime) -> int:
+    return max(
+        0,
+        int((normalize_utc_naive(end) - normalize_utc_naive(start)).total_seconds()),
+    )
+
+
 def new_uuid() -> str:
     return str(uuid.uuid4())
 

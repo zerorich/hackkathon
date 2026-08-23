@@ -18,7 +18,7 @@ from server.api.schemas import AnswerBody
 from server.core.enums import AttemptStatus, ChallengeStatus, EntityStatus, UserRole
 from server.core.errors import ERROR_CODES, AppError, success_response
 from server.core.settings import get_settings
-from server.db.concurrency import advisory_lock
+from server.db.concurrency import advisory_lock, integrity_savepoint
 from server.models.entities import (
     Attempt,
     AttemptAnswer,
@@ -160,7 +160,7 @@ async def submit_answer(
     answer = existing.scalar_one_or_none()
     if answer is None:
         try:
-            async with db.begin_nested():
+            async with integrity_savepoint(db):
                 db.add(
                     AttemptAnswer(
                         attempt_id=attempt.id,
@@ -247,7 +247,7 @@ async def create_duel(attempt_id: str, user: Student, db: DbSession):
         expires_at=duel_expires_at(settings.duel_expiry_hours),
     )
     try:
-        async with db.begin_nested():
+        async with integrity_savepoint(db):
             db.add(duel)
             await db.flush()
     except IntegrityError:

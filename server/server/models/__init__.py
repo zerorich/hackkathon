@@ -20,9 +20,12 @@ from server.models.entities import (
     User,
     XpLedger,
     duel_expires_at,
+    elapsed_seconds,
     generate_invite_code,
     generate_share_code,
+    is_before_utc,
     new_uuid,
+    normalize_utc_naive,
     utcnow,
 )
 
@@ -49,8 +52,11 @@ __all__ = [
     "User",
     "XpLedger",
     "duel_expires_at",
+    "elapsed_seconds",
     "generate_invite_code",
     "generate_share_code",
+    "is_before_utc",
     "new_uuid",
+    "normalize_utc_naive",
     "utcnow",
 ]

@@ -18,6 +18,8 @@ from server.models.entities import (
     TopicProgress,
     User,
     duel_expires_at,
+    is_before_utc,
+    utcnow,
 )
 from server.services.calculations import calculate_leaderboard_rank_data, level_progress
 from server.services.domain import MembershipService
@@ -77,9 +79,7 @@ async def accept_duel(share_code: str, user: Student, db: DbSession):
         raise AppError(
             ERROR_CODES.DUEL_ALREADY_COMPLETED, "Duel already completed", status_code=409
         )
-    from server.models.entities import utcnow
-
-    if duel.expires_at < utcnow():
+    if is_before_utc(duel.expires_at, utcnow()):
         duel.status = DuelStatus.EXPIRED
         raise AppError(ERROR_CODES.DUEL_EXPIRED, "Duel expired", status_code=410)
     if duel.opponent_id and duel.opponent_id != user.id:

@@ -35,7 +35,7 @@ from server.core.security import (
     verify_otp,
 )
 from server.core.settings import Settings, get_settings
-from server.db.concurrency import advisory_lock
+from server.db.concurrency import advisory_lock, integrity_savepoint
 from server.models.entities import (
     ActivityEvent,
     Attempt,
@@ -50,6 +50,8 @@ from server.models.entities import (
     TopicProgress,
     User,
     XpLedger,
+    elapsed_seconds,
+    is_before_utc,
     new_uuid,
     utcnow,
 )
@@ -164,7 +166,7 @@ class AuthService:
         if challenge is None:
             raise AppError(ERROR_CODES.OTP_INVALID, "Invalid OTP", status_code=401)
 
-        if challenge.expires_at < utcnow():
+        if is_before_utc(challenge.expires_at, utcnow()):
             raise AppError(ERROR_CODES.OTP_EXPIRED, "OTP expired", status_code=401)
 
         if challenge.attempts_count >= self.settings.otp_max_verify_attempts:
@@ -204,7 +206,7 @@ class AuthService:
             if session.replaced_by_id is not None:
                 raise AppError(ERROR_CODES.REFRESH_REUSED, "Refresh token reused", status_code=401)
             raise AppError(ERROR_CODES.SESSION_REVOKED, "Session revoked", status_code=401)
-        if session.expires_at < utcnow():
+        if is_before_utc(session.expires_at, utcnow()):
             raise AppError(ERROR_CODES.REFRESH_EXPIRED, "Refresh token expired", status_code=401)
 
         user = await self.db.get(User, session.user_id)
@@ -427,7 +429,7 @@ class MembershipService:
             return school_class
 
         try:
-            async with self.db.begin_nested():
+            async with integrity_savepoint(self.db):
                 self.db.add(
                     ClassMembership(
                         class_id=school_class.id,
@@ -577,9 +579,7 @@ class AttemptService:
             attempt.xp_awarded = xp
             attempt.completed_at = utcnow()
             if attempt.started_at:
-                attempt.duration_seconds = max(
-                    0, int((attempt.completed_at - attempt.started_at).total_seconds())
-                )
+                attempt.duration_seconds = elapsed_seconds(attempt.started_at, attempt.completed_at)
 
             existing_xp = await self.db.execute(
                 select(XpLedger).where(
@@ -913,7 +913,7 @@ class DuelService:
                 raise AppError(
                     ERROR_CODES.CANNOT_DUEL_SELF, "Cannot accept own duel", status_code=409
                 )
-            if duel.expires_at < utcnow():
+            if is_before_utc(duel.expires_at, utcnow()):
                 duel.status = DuelStatus.EXPIRED
                 duel.updated_at = utcnow()
                 await self.db.flush()

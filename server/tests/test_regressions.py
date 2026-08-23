@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -80,3 +82,15 @@ async def test_leaderboard_cache_is_personalized_after_cache_read(
     current = next(entry for entry in payload["entries"] if entry["is_current_user"])
     assert current["user"]["id"] == by_identifier["cache-second@demo.local"].id
     assert "identifier" not in current["user"]
+
+
+from server.models.entities import elapsed_seconds, is_before_utc
+
+
+def test_datetime_helpers_accept_postgres_aware_and_sqlite_naive_values():
+    naive = datetime(2026, 8, 23, 10, 0, 0, tzinfo=UTC).replace(tzinfo=None)
+    aware = datetime(2026, 8, 23, 10, 0, 1, tzinfo=UTC)
+
+    assert is_before_utc(naive, aware)
+    assert elapsed_seconds(naive, aware) == 1
+    assert elapsed_seconds(aware, naive - timedelta(seconds=1)) == 0
