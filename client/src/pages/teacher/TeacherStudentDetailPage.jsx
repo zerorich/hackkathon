@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { CheckCircle2, Flame, Swords, Target, Trophy } from "lucide-react";
 import { api } from "../../lib/api";
 import { useApiData } from "../../lib/useApiData";
-import { LoadingView, ErrorView } from "../../components/StateViews";
+import { LoadingView, ErrorView, EmptyView } from "../../components/StateViews";
 import { Avatar, StatPill, MasteryBadge, Card } from "../../components/ui";
 
 export default function TeacherStudentDetailPage() {
@@ -15,6 +15,9 @@ export default function TeacherStudentDetailPage() {
 
   if (loading) return <LoadingView label="O'quvchi ma'lumotlari yuklanmoqda…" />;
   if (error) return <ErrorView error={error} onRetry={reload} />;
+  if (!data?.profile) {
+    return <EmptyView title="O'quvchi topilmadi" subtitle="O'quvchi sinfdan chiqarilgan bo'lishi mumkin." />;
+  }
 
   const { profile, stats, topic_progress, duel_stats, recent_attempts } = data;
 

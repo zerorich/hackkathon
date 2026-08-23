@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { useApiData } from "../lib/useApiData";
 import { LoadingView, ErrorView } from "../components/StateViews";
 import { friendlyError } from "../lib/errorMessages";
-import { cacheAttemptChallenge, getDuelForAttempt } from "../lib/duel";
+import { cacheAttemptChallenge, getDuelForAttempt, linkAttemptToDuel } from "../lib/duel";
 
 export default function ResultPage() {
   const { attemptId } = useParams();
@@ -36,6 +36,7 @@ export default function ResultPage() {
     setDuelError(null);
     try {
       const duel = await api.post(`/attempts/${attemptId}/duels`);
+      linkAttemptToDuel(attemptId, duel.duel_id);
       setDuelInfo(duel);
     } catch (err) {
       setDuelError(err);
@@ -49,6 +50,7 @@ export default function ResultPage() {
     setDuelError(null);
     try {
       const res = await api.post(`/attempts/${attemptId}/duels/bot`);
+      linkAttemptToDuel(attemptId, res.duel_id);
       navigate(`/duels/${res.duel_id}`);
     } catch (err) {
       setDuelError(err);
@@ -84,7 +86,7 @@ export default function ResultPage() {
   async function handleShare() {
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Zehna", text: "Mening natijamni yenga oling!", url: shareUrl() });
+        await navigator.share({ title: "Zehn AI", text: "Mening natijamni yenga oling!", url: shareUrl() });
       } catch {
         /* user cancelled share sheet */
       }
@@ -172,7 +174,7 @@ export default function ResultPage() {
             <Swords size={16} /> {duelLoading ? "Duel yaratilmoqda…" : "Do'stni chaqirish"}
           </button>
           <button className="btn btn-secondary btn-block" onClick={handleBotDuel} disabled={botLoading}>
-            <Bot size={16} /> {botLoading ? "Bot bilan duel boshlanmoqda…" : "Zehna Bot bilan duel"}
+            <Bot size={16} /> {botLoading ? "Bot bilan duel boshlanmoqda…" : "Zehn AI Bot bilan duel"}
           </button>
         </>
       )}

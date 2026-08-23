@@ -38,7 +38,7 @@ const MESSAGES = {
   CHALLENGE_ARCHIVED: "Bu challenge endi mavjud emas.",
   CHALLENGE_ACCESS_DENIED: "Bu challenge'ga kirish huquqingiz yo'q.",
   AI_GENERATION_LIMIT: "Sizda allaqachon yaratilayotgan challenge bor. Tugashini kuting.",
-  AI_PROVIDER_UNAVAILABLE: "Zehna AI hozircha ishlamayapti.",
+  AI_PROVIDER_UNAVAILABLE: "Zehn AI hozircha ishlamayapti.",
   AI_OUTPUT_INVALID: "Challenge yaratib bo'lmadi. Qayta urinib ko'ring.",
   INVALID_QUESTION: "Savol ma'lumotlari noto'g'ri.",
   INVALID_CORRECT_OPTION_COUNT: "Har bir savolda aynan bitta to'g'ri javob bo'lishi kerak.",

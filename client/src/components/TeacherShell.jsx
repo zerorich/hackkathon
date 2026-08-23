@@ -23,7 +23,7 @@ export function TeacherShell() {
           <div className="brand-badge">
             <GraduationCap size={18} />
           </div>
-          <strong>Zehna</strong>
+          <strong>Zehn AI</strong>
         </div>
 
         {NAV_ITEMS.map((item) => (
@@ -58,7 +58,7 @@ export function TeacherShell() {
           <button type="button" className="icon-btn" onClick={() => setOpen(true)}>
             <Menu size={18} />
           </button>
-          <strong>Zehna</strong>
+          <strong>Zehn AI</strong>
           <Avatar user={user} size={32} />
         </div>
         <main className="teacher-main">

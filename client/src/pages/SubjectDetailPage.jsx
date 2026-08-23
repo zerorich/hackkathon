@@ -10,14 +10,10 @@ export default function SubjectDetailPage() {
   const location = useLocation();
   const subjectHint = location.state?.subject;
 
-  const { data, loading, error, reload } = useApiData(async () => {
-    const [topics, progress] = await Promise.all([
-      api.get(`/subjects/${subjectId}/topics`),
-      api.get(`/me/topics/progress?subject_id=${subjectId}`),
-    ]);
-    const progressByTopic = Object.fromEntries(progress.map((p) => [p.topic_id, p]));
-    return topics.map((t) => ({ ...t, progress: progressByTopic[t.id] || null }));
-  }, [subjectId]);
+  const { data, loading, error, reload } = useApiData(
+    () => api.get(`/subjects/${subjectId}/topics`),
+    [subjectId]
+  );
 
   if (loading) return <LoadingView label="Mavzular yuklanmoqda…" />;
   if (error) return <ErrorView error={error} onRetry={reload} />;
@@ -36,8 +32,8 @@ export default function SubjectDetailPage() {
                 {t.description && <span className="topic-card-desc">{t.description}</span>}
                 <div className="topic-card-meta">
                   <DifficultyBadge difficulty={t.difficulty} />
-                  {t.progress && <MasteryBadge category={t.progress.mastery_level} />}
-                  {t.progress && <span>{t.progress.attempts_count} urinish</span>}
+                  <MasteryBadge category={t.mastery_category} />
+                  <span>{t.attempts_count || 0} urinish</span>
                 </div>
               </div>
               <span className="chevron">

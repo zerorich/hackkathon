@@ -1,5 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { api, clearTokens, getAccessToken, setTokens, setUnauthorizedHandler } from "../lib/api";
+import {
+  api,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  setUnauthorizedHandler,
+} from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -32,6 +39,7 @@ export function AuthProvider({ children }) {
     } else {
       setStatus("unauthenticated");
     }
+    return () => setUnauthorizedHandler(null);
   }, [loadMe]);
 
   const requestOtp = useCallback(
@@ -61,7 +69,8 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.post("/auth/logout", {});
+      const refreshToken = getRefreshToken();
+      await api.post("/auth/logout", refreshToken ? { refresh_token: refreshToken } : undefined);
     } catch {
       /* proceed with local logout regardless */
     }

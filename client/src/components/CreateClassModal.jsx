@@ -35,11 +35,17 @@ export function CreateClassModal({ onClose, onCreated }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="modal-card"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-class-title"
+      >
         {created ? (
           <>
-            <h3>Sinf yaratildi 🎉</h3>
+            <h3 id="create-class-title">Sinf yaratildi 🎉</h3>
             <p className="muted">O'quvchilarga shu kodni ulashing:</p>
             <div className="invite-pill">{created.invite_code}</div>
             <button className="btn btn-primary btn-block" onClick={onClose}>
@@ -48,7 +54,7 @@ export function CreateClassModal({ onClose, onCreated }) {
           </>
         ) : (
           <>
-            <h3>Yangi sinf yaratish</h3>
+            <h3 id="create-class-title">Yangi sinf yaratish</h3>
             <form onSubmit={handleSubmit} className="auth-form">
               <label className="field-label">Nomi</label>
               <input

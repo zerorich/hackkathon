@@ -12,12 +12,13 @@ export default function VerifyPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const identifier = location.state?.identifier;
-  const demoCode = location.state?.demoCode;
+  const [demoCode, setDemoCode] = useState(location.state?.demoCode);
   const password = location.state?.password;
   const role = location.state?.role;
 
   const [digits, setDigits] = useState(Array(CODE_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState(null);
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
   const inputsRef = useRef([]);
@@ -83,13 +84,18 @@ export default function VerifyPage() {
   }
 
   async function handleResend() {
-    if (cooldown > 0) return;
+    if (cooldown > 0 || resending) return;
+    setResending(true);
     setError(null);
     try {
-      await requestOtp(identifier);
+      const res = await requestOtp(identifier);
+      setDemoCode(res?.demo_code || null);
+      setDigits(Array(CODE_LENGTH).fill(""));
       setCooldown(RESEND_COOLDOWN);
     } catch (err) {
       setError(err);
+    } finally {
+      setResending(false);
     }
   }
 
@@ -114,6 +120,9 @@ export default function VerifyPage() {
                   ref={(el) => (inputsRef.current[idx] = el)}
                   className="otp-box"
                   inputMode="numeric"
+                  aria-label={`Kod raqami ${idx + 1}`}
+                  autoComplete={idx === 0 ? "one-time-code" : "off"}
+                  autoFocus={idx === 0}
                   maxLength={1}
                   value={d}
                   onChange={(e) => updateDigit(idx, e.target.value)}
@@ -134,9 +143,13 @@ export default function VerifyPage() {
               type="button"
               className="btn btn-ghost btn-block"
               onClick={handleResend}
-              disabled={cooldown > 0}
+              disabled={cooldown > 0 || resending}
             >
-              {cooldown > 0 ? `Kodni qayta yuborish (${cooldown}s)` : "Kodni qayta yuborish"}
+              {resending
+                ? "Yuborilmoqda…"
+                : cooldown > 0
+                  ? `Kodni qayta yuborish (${cooldown}s)`
+                  : "Kodni qayta yuborish"}
             </button>
           </form>
         </div>

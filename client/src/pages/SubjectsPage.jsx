@@ -6,7 +6,7 @@ import { LoadingView, ErrorView, EmptyView } from "../components/StateViews";
 import { PageHeader } from "../components/ui";
 
 async function loadSubjects() {
-  const classes = await api.get("/classes/");
+  const classes = await api.get("/classes");
   const activeClass = classes?.[0];
   if (!activeClass) return { class: null, subjects: [] };
   const subjects = await api.get(`/classes/${activeClass.id}/subjects`);

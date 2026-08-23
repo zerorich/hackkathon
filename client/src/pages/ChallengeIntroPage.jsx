@@ -88,7 +88,7 @@ export default function ChallengeIntroPage() {
       <div className="page">
         <div className="generating-card">
           <div className="spinner" />
-          <h2>Zehna AI challenge yaratmoqda…</h2>
+          <h2>Zehn AI challenge yaratmoqda…</h2>
           <p className="muted">Bu odatda bir necha soniya davom etadi.</p>
           <div className="skeleton-row" />
           <div className="skeleton-row" />
@@ -101,8 +101,11 @@ export default function ChallengeIntroPage() {
   if (challenge.status === "FAILED") {
     return (
       <div className="page">
-        <ErrorView label="Zehna AI challenge yarata olmadi." onRetry={handleRetry} />
-        {retrying && <p className="muted center">Qayta urinilmoqda…</p>}
+        <ErrorView label="Zehn AI challenge yarata olmadi." />
+        {startError && <p className="field-error center">{friendlyError(startError)}</p>}
+        <button className="btn btn-primary btn-block" type="button" onClick={handleRetry} disabled={retrying}>
+          {retrying ? "Qayta urinilmoqda…" : "Qayta urinish"}
+        </button>
       </div>
     );
   }

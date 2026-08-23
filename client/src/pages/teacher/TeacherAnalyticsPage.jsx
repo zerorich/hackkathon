@@ -9,7 +9,13 @@ import { ClassSwitcher } from "../../components/ClassSwitcher";
 
 export default function TeacherAnalyticsPage() {
   const navigate = useNavigate();
-  const { activeClassId, loading: classesLoading, error: classesError, classes } = useTeacherClasses();
+  const {
+    activeClassId,
+    loading: classesLoading,
+    error: classesError,
+    classes,
+    reload: reloadClasses,
+  } = useTeacherClasses();
 
   const { data, loading, error, reload } = useApiData(async () => {
     if (!activeClassId) return null;
@@ -21,7 +27,7 @@ export default function TeacherAnalyticsPage() {
   }, [activeClassId]);
 
   if (classesLoading) return <LoadingView label="Yuklanmoqda…" />;
-  if (classesError) return <ErrorView error={classesError} />;
+  if (classesError) return <ErrorView error={classesError} onRetry={reloadClasses} />;
   if (!classes || classes.length === 0) {
     return (
       <div className="responsive-page">
@@ -59,7 +65,14 @@ export default function TeacherAnalyticsPage() {
 
       <section className="section">
         <h3 className="section-title">Barcha mavzular</h3>
-        <div className="data-table-wrap">
+        {topics.length === 0 ? (
+          <EmptyView
+            icon={<BarChart3 size={26} />}
+            title="Hali tahlil qilinadigan mavzu yo'q"
+            subtitle="Sinfga fan va mavzu qo'shing, keyin o'quvchilar challenge yechishi bilan statistika paydo bo'ladi."
+          />
+        ) : (
+          <div className="data-table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -84,7 +97,8 @@ export default function TeacherAnalyticsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        )}
       </section>
 
       {overview.weak_topics?.length > 0 && (

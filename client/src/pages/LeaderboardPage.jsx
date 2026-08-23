@@ -7,7 +7,7 @@ import { LoadingView, ErrorView, EmptyView } from "../components/StateViews";
 import { Avatar, PageHeader } from "../components/ui";
 
 async function loadLeaderboard(period) {
-  const classes = await api.get("/classes/");
+  const classes = await api.get("/classes");
   const activeClass = classes?.[0];
   if (!activeClass) return { class: null, board: null };
   const board = await api.get(`/classes/${activeClass.id}/leaderboard?period=${period}&limit=50`);

@@ -67,9 +67,9 @@ export default function DashboardPage() {
       </div>
 
       {recommended_topic ? (
-        <div className="hero-card" onClick={() => navigate(`/topics/${recommended_topic.topic_id}`)}>
+        <div className="hero-card">
           <div className="hero-card-tag">
-            <Sparkles size={12} /> Zehna AI tavsiyasi
+            <Sparkles size={12} /> Zehn AI tavsiyasi
           </div>
           <h2>{recommended_topic.title}</h2>
           <p className="hero-card-note">
@@ -80,16 +80,16 @@ export default function DashboardPage() {
             <MasteryBadge category={recommended_topic.mastery_category} />
             <span>~3-5 daqiqa</span>
           </div>
-          <button className="btn" type="button">
+          <button className="btn" type="button" onClick={() => navigate(`/topics/${recommended_topic.topic_id}`)}>
             Challenge'ni boshlash
           </button>
         </div>
       ) : (
-        <div className="hero-card hero-card-muted" onClick={() => navigate("/subjects")}>
+        <div className="hero-card hero-card-muted">
           <div className="hero-card-tag">Boshlash</div>
           <h2>Fan tanlab mashq qiling</h2>
           <p className="hero-card-meta">Hali tavsiya yo'q — fanlaringizni ko'rib chiqing.</p>
-          <button className="btn" type="button">
+          <button className="btn" type="button" onClick={() => navigate("/subjects")}>
             Fanlarni ko'rish
           </button>
         </div>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
         <section className="section">
           <h3 className="section-title">So'nggi faoliyat</h3>
           {recent_attempts.map((a) => (
-            <div key={a.id} className="list-card" style={{ cursor: "default" }}>
+            <Link key={a.id} className="list-card" to={`/attempt/${a.id}/result`}>
               <span className="list-card-icon">{a.accuracy_percent >= 100 ? <Trophy size={18} /> : <Target size={18} />}</span>
               <div className="list-card-body">
                 <strong>
@@ -183,7 +183,7 @@ export default function DashboardPage() {
                 </strong>
                 <span className="list-card-meta">+{a.xp_awarded} XP</span>
               </div>
-            </div>
+            </Link>
           ))}
         </section>
       )}

@@ -26,9 +26,10 @@ export default function OnboardingPage() {
     try {
       if (!isTeacher && inviteCode.trim()) {
         try {
-          await api.post("/classes/join", { invite_code: inviteCode.trim() });
+          await api.post("/classes/join", { invite_code: inviteCode.trim().toUpperCase() });
         } catch (err) {
           setJoinError(err);
+          return;
         }
       }
       await updateProfile({
@@ -96,7 +97,7 @@ export default function OnboardingPage() {
                   id="inviteCode"
                   className="text-input"
                   value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                   placeholder="masalan: 9A-4F2K"
                   disabled={loading}
                 />

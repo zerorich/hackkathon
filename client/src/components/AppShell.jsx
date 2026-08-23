@@ -6,7 +6,7 @@ import { Avatar } from "./ui";
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Bosh sahifa", icon: Home },
   { to: "/subjects", label: "Fanlar", icon: LayoutGrid },
-  { to: "/ai", label: "Zehna AI", icon: MessageCircle },
+  { to: "/ai", label: "Zehn AI", icon: MessageCircle },
   { to: "/leaderboard", label: "Reyting", icon: Trophy },
   { to: "/duels", label: "Duellar", icon: Swords },
   { to: "/profile", label: "Profil", icon: UserRound },
@@ -22,7 +22,7 @@ export function AppShell() {
           <div className="brand-badge">
             <Sparkles size={18} />
           </div>
-          <strong>Zehna</strong>
+          <strong>Zehn AI</strong>
         </div>
         {NAV_ITEMS.map((item) => (
           <NavLink

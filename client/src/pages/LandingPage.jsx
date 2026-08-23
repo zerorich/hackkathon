@@ -24,7 +24,7 @@ const FEATURES = [
   {
     icon: <Swords size={22} />,
     title: "Do'stlar bilan duel",
-    desc: "Challenge'ni tugatib do'stingizga havola yuboring. Do'st topilmasa — Zehna Bot bilan darhol duel qiling.",
+    desc: "Challenge'ni tugatib do'stingizga havola yuboring. Do'st topilmasa — Zehn AI Bot bilan darhol duel qiling.",
   },
   {
     icon: <Flame size={22} />,
@@ -33,7 +33,7 @@ const FEATURES = [
   },
   {
     icon: <MessageCircle size={22} />,
-    title: "Zehna AI bilan ovozli suhbat",
+    title: "Zehn AI bilan ovozli suhbat",
     desc: "Tugmani bosing, gapiring — AI eshitadi, javob beradi va ovozda o'qib beradi. Uy vazifasida qiynalgan joyingizni AI darhol tushuntirib beradi.",
   },
   {
@@ -78,7 +78,7 @@ export default function LandingPage() {
             <div className="lp-brand-icon">
               <Sparkles size={18} />
             </div>
-            Zehna
+            Zehn AI
           </div>
           <div className="lp-nav-links">
             <a href="#features">Imkoniyatlar</a>
@@ -98,7 +98,7 @@ export default function LandingPage() {
             Zukko bo'l, <span>Yetakchi bo'l</span>
           </h1>
           <p className="lp-hero-text">
-            Zehna — maktab o'quvchilari uchun AI asosidagi o'qish platformasi. Har bir mavzu qiziqarli
+            Zehn AI — maktab o'quvchilari uchun AI asosidagi o'qish platformasi. Har bir mavzu qiziqarli
             challenge'ga, har bir g'alaba esa kuchliroq Hero'ga aylanadi. Do'stlaringiz bilan raqobatlashing,
             o'qituvchingiz esa sinf natijalarini bir joyda ko'radi.
           </p>
@@ -164,7 +164,7 @@ export default function LandingPage() {
         </section>
 
         <section id="features" className="lp-section">
-          <h2 className="lp-section-title">Nega aynan Zehna?</h2>
+          <h2 className="lp-section-title">Nega aynan Zehn AI?</h2>
           <p className="lp-section-subtitle">
             Oddiy AI-chat emas — o'yin mexanikasi bilan birlashgan to'liq o'qish platformasi.
           </p>
@@ -237,7 +237,7 @@ export default function LandingPage() {
         </section>
 
         <footer className="lp-footer">
-          <p>Zehna — maktablar uchun AI o'qish platformasi</p>
+          <p>Zehn AI — maktablar uchun AI o'qish platformasi</p>
         </footer>
       </div>
     </div>

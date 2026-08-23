@@ -1,7 +1,6 @@
-// The backend auto-assigns TEACHER role only when the identifier starts with
-// "teacher@" (see server/services/domain.py _get_or_create_user); every other
-// identifier becomes a STUDENT. These helpers keep that real backend rule in
-// one place instead of duplicating the "teacher@" prefix across screens.
+// Teacher accounts use a short handle in the UI and a stable namespaced
+// identifier over the API. Keep that transformation in one place so login,
+// registration, and future account recovery all agree on the same value.
 const TEACHER_PREFIX = "teacher@";
 
 export function buildTeacherIdentifier(handle) {

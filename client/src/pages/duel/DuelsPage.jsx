@@ -6,11 +6,13 @@ import { useApiData } from "../../lib/useApiData";
 import { LoadingView, ErrorView, EmptyView } from "../../components/StateViews";
 import { PageHeader } from "../../components/ui";
 import { duelStatusLabel } from "../../lib/duel";
+import { friendlyError } from "../../lib/errorMessages";
 
 export default function DuelsPage() {
   const [cursor, setCursor] = useState(null);
   const [items, setItems] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(null);
 
   const { loading, error, reload } = useApiData(async () => {
     const res = await api.get("/me/duels?limit=20");
@@ -22,10 +24,13 @@ export default function DuelsPage() {
   async function loadMore() {
     if (!cursor) return;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       const res = await api.get(`/me/duels?limit=20&cursor=${encodeURIComponent(cursor)}`);
       setItems((prev) => [...prev, ...res.items]);
       setCursor(res.next_cursor);
+    } catch (err) {
+      setLoadMoreError(err);
     } finally {
       setLoadingMore(false);
     }
@@ -59,9 +64,12 @@ export default function DuelsPage() {
             ))}
           </div>
           {cursor && (
-            <button className="btn btn-secondary btn-block" onClick={loadMore} disabled={loadingMore}>
-              {loadingMore ? "Yuklanmoqda…" : "Ko'proq yuklash"}
-            </button>
+            <>
+              {loadMoreError && <p className="field-error center">{friendlyError(loadMoreError)}</p>}
+              <button className="btn btn-secondary btn-block" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Yuklanmoqda…" : loadMoreError ? "Qayta urinish" : "Ko'proq yuklash"}
+              </button>
+            </>
           )}
         </>
       )}

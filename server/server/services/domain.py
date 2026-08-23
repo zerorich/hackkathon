@@ -6,6 +6,7 @@ import random
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 import httpx
 from sqlalchemy import and_, func, select
@@ -205,7 +206,9 @@ class AuthService:
         result = await self.db.execute(select(User).where(User.identifier == identifier))
         user = result.scalar_one_or_none()
         if user is None:
-            raise AppError(ERROR_CODES.INVALID_CREDENTIALS, "Login yoki parol noto'g'ri", status_code=401)
+            raise AppError(
+                ERROR_CODES.INVALID_CREDENTIALS, "Login yoki parol noto'g'ri", status_code=401
+            )
         if user.status == UserStatus.BLOCKED:
             raise AppError(ERROR_CODES.USER_BLOCKED, "User is blocked", status_code=403)
         if not user.password_hash:
@@ -215,7 +218,9 @@ class AuthService:
                 status_code=409,
             )
         if not verify_password(password, user.password_hash):
-            raise AppError(ERROR_CODES.INVALID_CREDENTIALS, "Login yoki parol noto'g'ri", status_code=401)
+            raise AppError(
+                ERROR_CODES.INVALID_CREDENTIALS, "Login yoki parol noto'g'ri", status_code=401
+            )
         return await self._issue_tokens(user)
 
     async def refresh(self, refresh_token: str) -> dict:
@@ -299,7 +304,9 @@ class AuthService:
             family_session.revoked_at = now
         await self.db.flush()
 
-    async def _get_or_create_user(self, identifier: str, *, role: str | None = None) -> tuple[User, bool]:
+    async def _get_or_create_user(
+        self, identifier: str, *, role: str | None = None
+    ) -> tuple[User, bool]:
         result = await self.db.execute(select(User).where(User.identifier == identifier))
         user = result.scalar_one_or_none()
         if user is None:
@@ -992,7 +999,11 @@ class DuelService:
             return duel, opponent_attempt, challenge
 
     BOT_IDENTIFIER = "bot@zehna"
-    BOT_ACCURACY_BY_DIFFICULTY = {"EASY": 0.88, "MEDIUM": 0.72, "HARD": 0.55}
+    BOT_ACCURACY_BY_DIFFICULTY: ClassVar[dict[str, float]] = {
+        "EASY": 0.88,
+        "MEDIUM": 0.72,
+        "HARD": 0.55,
+    }
 
     async def _get_or_create_bot(self) -> User:
         result = await self.db.execute(select(User).where(User.identifier == self.BOT_IDENTIFIER))
@@ -1000,12 +1011,17 @@ class DuelService:
         if bot is None:
             bot = User(
                 identifier=self.BOT_IDENTIFIER,
-                display_name="Zehna Bot",
+                display_name="Zehn AI Bot",
                 avatar_url="dragon",
                 role=UserRole.STUDENT,
                 onboarding_completed=True,
             )
             self.db.add(bot)
+            await self.db.flush()
+        elif bot.display_name != "Zehn AI Bot":
+            # Keep the stable identifier for existing duel references while
+            # migrating the user-facing product name lazily and safely.
+            bot.display_name = "Zehn AI Bot"
             await self.db.flush()
         return bot
 
@@ -1143,7 +1159,12 @@ class DuelService:
                 user_id=user.id,
                 event_type=ActivityEventType.DUEL_COMPLETED,
                 payload=json.dumps(
-                    {"duel_id": duel.id, "winner_id": duel.winner_id, "result_type": duel.result_type, "bot": True}
+                    {
+                        "duel_id": duel.id,
+                        "winner_id": duel.winner_id,
+                        "result_type": duel.result_type,
+                        "bot": True,
+                    }
                 ),
             )
         )

@@ -11,7 +11,13 @@ import { CreateClassModal } from "../../components/CreateClassModal";
 
 export default function TeacherDashboardPage() {
   const navigate = useNavigate();
-  const { classes, activeClassId, loading: classesLoading, error: classesError } = useTeacherClasses();
+  const {
+    classes,
+    activeClassId,
+    loading: classesLoading,
+    error: classesError,
+    reload: reloadClasses,
+  } = useTeacherClasses();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data, loading, error, reload } = useApiData(
@@ -20,7 +26,7 @@ export default function TeacherDashboardPage() {
   );
 
   if (classesLoading) return <LoadingView label="Sinflar yuklanmoqda…" />;
-  if (classesError) return <ErrorView error={classesError} />;
+  if (classesError) return <ErrorView error={classesError} onRetry={reloadClasses} />;
 
   if (!classes || classes.length === 0) {
     return (
@@ -45,6 +51,7 @@ export default function TeacherDashboardPage() {
 
   if (loading) return <LoadingView label="Dashboard yuklanmoqda…" />;
   if (error) return <ErrorView error={error} onRetry={reload} />;
+  if (!data) return <EmptyView icon={<Users size={30} />} title="Sinf tanlanmagan" />;
 
   const insight = data.weak_topics?.[0]
     ? `AI aniqladi: "${data.weak_topics[0].title}" mavzusida sinf o'rtacha aniqligi ${Math.round(

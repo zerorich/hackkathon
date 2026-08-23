@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { GraduationCap, KeyRound, Sparkles, UserRound } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { friendlyError } from "../lib/errorMessages";
-import { buildTeacherIdentifier } from "../lib/identifier";
+import { buildTeacherIdentifier, teacherHandle } from "../lib/identifier";
 import { ApiError } from "../lib/api";
 
 export default function LoginPage() {
@@ -21,12 +21,20 @@ export default function LoginPage() {
 
   const trimmed = identifier.trim();
   const isRegister = mode === "register";
-  const canSubmit = isRegister
-    ? (role === "teacher" ? trimmed.length >= 2 : trimmed.length >= 3) && password.length >= 4
-    : trimmed.length >= 3 && password.length >= 1;
+  const normalizedIdentifier =
+    role === "teacher" ? buildTeacherIdentifier(teacherHandle(trimmed.toLowerCase())) : trimmed;
+  const canSubmit =
+    (role === "teacher" ? trimmed.length >= 2 : trimmed.length >= 3) && password.length >= 4;
 
   function switchMode(next) {
     setMode(next);
+    setError(null);
+    setPasswordNotSet(false);
+  }
+
+  function switchRole(next) {
+    setRole(next);
+    setIdentifier("");
     setError(null);
     setPasswordNotSet(false);
   }
@@ -38,7 +46,7 @@ export default function LoginPage() {
     setError(null);
     setPasswordNotSet(false);
     try {
-      const res = await loginWithPassword(trimmed, password);
+      const res = await loginWithPassword(normalizedIdentifier, password);
       navigate(res.user.role === "TEACHER" ? "/teacher/dashboard" : "/dashboard", { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === "PASSWORD_NOT_SET") {
@@ -53,7 +61,7 @@ export default function LoginPage() {
   async function handleRegister(e) {
     e.preventDefault();
     if (!canSubmit) return;
-    const finalIdentifier = role === "teacher" ? buildTeacherIdentifier(trimmed) : trimmed;
+    const finalIdentifier = normalizedIdentifier;
     setLoading(true);
     setError(null);
     try {
@@ -73,8 +81,8 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await requestOtp(trimmed);
-      navigate("/verify", { state: { identifier: trimmed, demoCode: res?.demo_code } });
+      const res = await requestOtp(normalizedIdentifier);
+      navigate("/verify", { state: { identifier: normalizedIdentifier, demoCode: res?.demo_code } });
     } catch (err) {
       setError(err);
     } finally {
@@ -89,44 +97,42 @@ export default function LoginPage() {
           <div className="brand-mark">
             <Sparkles size={26} />
           </div>
-          <h1>Zehna</h1>
+          <h1>Zehn AI</h1>
           <p className="auth-tagline">
             {isRegister
               ? "O'zingizga login va parol o'ylab toping — bu safar bir martalik kod so'raladi."
               : "Login va parolingiz bilan kiring."}
           </p>
 
-          {isRegister && (
-            <div className="role-tabs">
-              <button
-                type="button"
-                className={`role-tab${role === "student" ? " active-student" : ""}`}
-                onClick={() => setRole("student")}
-              >
-                <UserRound size={16} /> O'quvchi
-              </button>
-              <button
-                type="button"
-                className={`role-tab${role === "teacher" ? " active-teacher" : ""}`}
-                onClick={() => setRole("teacher")}
-              >
-                <GraduationCap size={16} /> O'qituvchi
-              </button>
-            </div>
-          )}
+          <div className="role-tabs" aria-label="Hisob turi">
+            <button
+              type="button"
+              className={`role-tab${role === "student" ? " active-student" : ""}`}
+              onClick={() => switchRole("student")}
+            >
+              <UserRound size={16} /> O'quvchi
+            </button>
+            <button
+              type="button"
+              className={`role-tab${role === "teacher" ? " active-teacher" : ""}`}
+              onClick={() => switchRole("teacher")}
+            >
+              <GraduationCap size={16} /> O'qituvchi
+            </button>
+          </div>
 
           <form onSubmit={isRegister ? handleRegister : handleLogin} className="auth-form">
-            {isRegister && role === "teacher" ? (
+            {role === "teacher" ? (
               <>
                 <label className="field-label" htmlFor="identifier">
-                  O'qituvchi login
+                  O'qituvchi logini
                 </label>
                 <div className="prefixed-input">
                   <span className="prefix-chip">teacher@</span>
                   <input
                     id="identifier"
                     type="text"
-                    placeholder="javodbek"
+                    placeholder="masalan: javodbek"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     disabled={loading}

@@ -121,7 +121,23 @@ async def get_attempt(attempt_id: str, user: CurrentUser, db: DbSession):
                 answers=attempt.answers,
             )
         )
-    return success_response(attempt_to_out(attempt))
+    # An in-progress attempt must be recoverable after a page refresh or when the
+    # user continues on another device.  The initial start response contains the
+    # challenge, but that response is ephemeral on the client.  Keep the answer
+    # key separate from the challenge so no correctness data is disclosed.
+    payload = attempt_to_out(attempt)
+    payload["challenge"] = challenge_detail_to_out(
+        attempt.challenge,
+        include_correct=False,
+    )
+    payload["answers"] = [
+        {
+            "question_id": answer.question_id,
+            "selected_option_id": answer.selected_option_id,
+        }
+        for answer in attempt.answers
+    ]
+    return success_response(payload)
 
 
 @router.put("/attempts/{attempt_id}/answers/{question_id}")

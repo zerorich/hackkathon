@@ -6,6 +6,7 @@ import { useTeacherClasses } from "../../context/TeacherClassContext";
 import { LoadingView, ErrorView, EmptyView } from "../../components/StateViews";
 import { PageHeader } from "../../components/ui";
 import { ClassSwitcher } from "../../components/ClassSwitcher";
+import { friendlyError } from "../../lib/errorMessages";
 
 const EVENT_META = {
   ATTEMPT_COMPLETED: { icon: <CheckCircle2 size={16} />, label: "Challenge yakunladi" },
@@ -15,10 +16,17 @@ const EVENT_META = {
 };
 
 export default function TeacherActivityPage() {
-  const { activeClassId, classes, loading: classesLoading, error: classesError } = useTeacherClasses();
+  const {
+    activeClassId,
+    classes,
+    loading: classesLoading,
+    error: classesError,
+    reload: reloadClasses,
+  } = useTeacherClasses();
   const [cursor, setCursor] = useState(null);
   const [items, setItems] = useState([]);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(null);
 
   const { loading, error, reload } = useApiData(async () => {
     if (!activeClassId) return null;
@@ -31,17 +39,20 @@ export default function TeacherActivityPage() {
   async function loadMore() {
     if (!cursor) return;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       const res = await api.get(`/teacher/classes/${activeClassId}/activity?limit=30&cursor=${encodeURIComponent(cursor)}`);
       setItems((prev) => [...prev, ...res.items]);
       setCursor(res.next_cursor);
+    } catch (err) {
+      setLoadMoreError(err);
     } finally {
       setLoadingMore(false);
     }
   }
 
   if (classesLoading) return <LoadingView label="Yuklanmoqda…" />;
-  if (classesError) return <ErrorView error={classesError} />;
+  if (classesError) return <ErrorView error={classesError} onRetry={reloadClasses} />;
   if (!classes || classes.length === 0) {
     return (
       <div className="responsive-page">
@@ -79,6 +90,7 @@ export default function TeacherActivityPage() {
               );
             })}
           </div>
+          {loadMoreError && <p className="field-error">{friendlyError(loadMoreError)}</p>}
           {cursor && (
             <button className="btn btn-secondary btn-block" onClick={loadMore} disabled={loadingMore}>
               {loadingMore ? "Yuklanmoqda…" : "Ko'proq yuklash"}

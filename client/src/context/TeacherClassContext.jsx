@@ -15,11 +15,13 @@ export function TeacherClassProvider({ children }) {
     setError(null);
     try {
       const res = await api.get("/classes/");
-      setClasses(res);
+      const nextClasses = Array.isArray(res) ? res : [];
+      setClasses(nextClasses);
       setActiveClassIdState((prev) => {
-        if (prev && res.some((c) => c.id === prev)) return prev;
-        const next = res[0]?.id || null;
+        if (prev && nextClasses.some((c) => c.id === prev)) return prev;
+        const next = nextClasses[0]?.id || null;
         if (next) localStorage.setItem(ACTIVE_CLASS_KEY, next);
+        else localStorage.removeItem(ACTIVE_CLASS_KEY);
         return next;
       });
     } catch (err) {
@@ -37,6 +39,7 @@ export function TeacherClassProvider({ children }) {
   const setActiveClassId = useCallback((id) => {
     setActiveClassIdState(id);
     if (id) localStorage.setItem(ACTIVE_CLASS_KEY, id);
+    else localStorage.removeItem(ACTIVE_CLASS_KEY);
   }, []);
 
   const activeClass = useMemo(

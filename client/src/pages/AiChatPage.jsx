@@ -55,6 +55,7 @@ export default function AiChatPage() {
     const content = text.trim();
     if (!content || !conversation || sending) return;
     setSending(true);
+    setError(null);
     setInput("");
     setMessages((prev) => [
       ...prev,
@@ -73,6 +74,7 @@ export default function AiChatPage() {
       }
     } catch (err) {
       setError(err);
+      setInput(content);
       setMessages((prev) => prev.filter((m) => !String(m.id).startsWith("temp-")));
     } finally {
       setSending(false);
@@ -102,23 +104,34 @@ export default function AiChatPage() {
   }
 
   function replayMessage(message) {
+    if (speakingId === message.id) {
+      stopSpeaking();
+      setSpeakingId(null);
+      return;
+    }
     setSpeakingId(message.id);
     speak(message.content, { onEnd: () => setSpeakingId(null) });
   }
 
-  if (loading) return <LoadingView label="Zehna AI ulanmoqda…" />;
+  if (loading) return <LoadingView label="Zehn AI ulanmoqda…" />;
   if (error && !conversation) return <ErrorView error={error} onRetry={() => window.location.reload()} />;
 
   return (
     <div className="page ai-page">
       <div className="page-header">
         <div>
-          <h1>Zehna AI</h1>
+          <h1>Zehn AI</h1>
           <p className="page-subtitle">Gapiring yoki yozing — AI sizga yordam beradi</p>
         </div>
         <button
           className="icon-btn"
-          onClick={() => setVoiceReplies((v) => !v)}
+          onClick={() => {
+            if (voiceReplies) {
+              stopSpeaking();
+              setSpeakingId(null);
+            }
+            setVoiceReplies((v) => !v);
+          }}
           title={voiceReplies ? "Ovozli javoblar yoqilgan" : "Ovozli javoblar o'chirilgan"}
         >
           {voiceReplies ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -142,7 +155,7 @@ export default function AiChatPage() {
             )}
           </div>
         ))}
-        {sending && <div className="ai-bubble ai-bubble-assistant ai-bubble-typing">Zehna AI yozmoqda…</div>}
+        {sending && <div className="ai-bubble ai-bubble-assistant ai-bubble-typing">Zehn AI yozmoqda…</div>}
       </div>
 
       {error && <p className="field-error center">{friendlyError(error)}</p>}
