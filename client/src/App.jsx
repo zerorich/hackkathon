@@ -1,122 +1,103 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { TeacherClassProvider } from "./context/TeacherClassContext";
+import { ProtectedRoute, GuestRoute, RoleRoute, homePathFor } from "./components/ProtectedRoute";
+import { AppShell } from "./components/AppShell";
+import { TeacherShell } from "./components/TeacherShell";
+import { LoadingView } from "./components/StateViews";
 
-function App() {
-  const [count, setCount] = useState(0)
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import VerifyPage from "./pages/VerifyPage";
+import OnboardingPage from "./pages/OnboardingPage";
+import JoinPage from "./pages/JoinPage";
+import DashboardPage from "./pages/DashboardPage";
+import AiChatPage from "./pages/AiChatPage";
+import SubjectsPage from "./pages/SubjectsPage";
+import SubjectDetailPage from "./pages/SubjectDetailPage";
+import TopicDetailPage from "./pages/TopicDetailPage";
+import ChallengeIntroPage from "./pages/ChallengeIntroPage";
+import AttemptPage from "./pages/AttemptPage";
+import ResultPage from "./pages/ResultPage";
+import DuelInvitePage from "./pages/duel/DuelInvitePage";
+import DuelsPage from "./pages/duel/DuelsPage";
+import DuelDetailPage from "./pages/duel/DuelDetailPage";
+import LeaderboardPage from "./pages/LeaderboardPage";
+import ProfilePage from "./pages/ProfilePage";
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+import TeacherDashboardPage from "./pages/teacher/TeacherDashboardPage";
+import TeacherClassesPage from "./pages/teacher/TeacherClassesPage";
+import TeacherClassDetailPage from "./pages/teacher/TeacherClassDetailPage";
+import TeacherSubjectDetailPage from "./pages/teacher/TeacherSubjectDetailPage";
+import TeacherTopicPage from "./pages/teacher/TeacherTopicPage";
+import TeacherStudentDetailPage from "./pages/teacher/TeacherStudentDetailPage";
+import TeacherAnalyticsPage from "./pages/teacher/TeacherAnalyticsPage";
+import TeacherActivityPage from "./pages/teacher/TeacherActivityPage";
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function RootRedirect() {
+  const { status, user } = useAuth();
+  if (status === "loading") return <LoadingView />;
+  return <Navigate to={status === "authenticated" ? homePathFor(user) : "/welcome"} replace />;
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<RootRedirect />} />
+
+        <Route element={<GuestRoute />}>
+          <Route path="/welcome" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/verify" element={<VerifyPage />} />
+        </Route>
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/onboarding" element={<OnboardingPage />} />
+
+          {/* -------- Student app -------- */}
+          <Route element={<RoleRoute role="STUDENT" />}>
+            <Route element={<AppShell />}>
+              <Route path="/join" element={<JoinPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/ai" element={<AiChatPage />} />
+              <Route path="/subjects" element={<SubjectsPage />} />
+              <Route path="/subjects/:subjectId" element={<SubjectDetailPage />} />
+              <Route path="/topics/:topicId" element={<TopicDetailPage />} />
+              <Route path="/challenge/:challengeId" element={<ChallengeIntroPage />} />
+              <Route path="/attempt/:attemptId" element={<AttemptPage />} />
+              <Route path="/attempt/:attemptId/result" element={<ResultPage />} />
+              <Route path="/duel/:shareCode" element={<DuelInvitePage />} />
+              <Route path="/duels" element={<DuelsPage />} />
+              <Route path="/duels/:duelId" element={<DuelDetailPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+            </Route>
+          </Route>
+
+          {/* -------- Teacher app -------- */}
+          <Route element={<RoleRoute role="TEACHER" />}>
+            <Route
+              element={
+                <TeacherClassProvider>
+                  <TeacherShell />
+                </TeacherClassProvider>
+              }
+            >
+              <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+              <Route path="/teacher/classes" element={<TeacherClassesPage />} />
+              <Route path="/teacher/classes/:classId" element={<TeacherClassDetailPage />} />
+              <Route path="/teacher/classes/:classId/subjects/:subjectId" element={<TeacherSubjectDetailPage />} />
+              <Route path="/teacher/classes/:classId/students/:studentId" element={<TeacherStudentDetailPage />} />
+              <Route path="/teacher/topics/:topicId" element={<TeacherTopicPage />} />
+              <Route path="/teacher/analytics" element={<TeacherAnalyticsPage />} />
+              <Route path="/teacher/activity" element={<TeacherActivityPage />} />
+            </Route>
+          </Route>
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
+  );
+}
