@@ -194,7 +194,7 @@ export function ActivityPage() {
               const meta = getEventMeta(e.type)
               const Icon = meta.icon
 
-              let payloadObj = {}
+              let payloadObj
               try {
                 payloadObj = typeof e.metadata === 'string' ? JSON.parse(e.metadata) : e.metadata || {}
               } catch {

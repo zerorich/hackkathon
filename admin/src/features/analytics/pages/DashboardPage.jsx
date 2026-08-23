@@ -395,7 +395,7 @@ export function DashboardPage({ onNavigate }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {recent_activity.map((act) => {
-                let payloadObj = {}
+                let payloadObj
                 try {
                   payloadObj = typeof act.payload === 'string' ? JSON.parse(act.payload) : act.payload || {}
                 } catch {

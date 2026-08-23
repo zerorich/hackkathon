@@ -6,9 +6,6 @@ import {
   Search,
   Check,
   HelpCircle,
-  Clock,
-  CheckCircle2,
-  Archive,
 } from 'lucide-react'
 import { useClass } from '../../stores/ClassContext'
 import { Card } from '../../components/ui/Card'
@@ -21,7 +18,7 @@ import { TableSkeleton } from '../../components/ui/LoadingSkeleton'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { api } from '../../lib/api'
 
-export function ChallengesPage({ onNavigate }) {
+export function ChallengesPage() {
   const { classes, selectedClassId } = useClass()
   const [challenges, setChallenges] = useState([])
   const [topics, setTopics] = useState([])
@@ -32,7 +29,6 @@ export function ChallengesPage({ onNavigate }) {
 
   // Preview Modal
   const [previewChallenge, setPreviewChallenge] = useState(null)
-  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // AI Gen Modal
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false)
@@ -134,13 +130,10 @@ export function ChallengesPage({ onNavigate }) {
   // Open Preview
   const handleOpenPreview = async (challengeId) => {
     try {
-      setLoadingPreview(true)
       const full = await api.challenges.get(challengeId)
       setPreviewChallenge(full)
     } catch (err) {
       alert(`Failed to load challenge details: ${err.message}`)
-    } finally {
-      setLoadingPreview(false)
     }
   }
 

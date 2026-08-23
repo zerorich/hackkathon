@@ -68,7 +68,6 @@ export function ClassDetailPage({ classId, onNavigate }) {
 
   // Challenge preview state
   const [previewChallenge, setPreviewChallenge] = useState(null)
-  const [loadingPreview, setLoadingPreview] = useState(false)
 
   // Manual Challenge Modal state
   const [isManualModalOpen, setIsManualModalOpen] = useState(false)
@@ -295,7 +294,7 @@ export function ClassDetailPage({ classId, onNavigate }) {
           } else {
             setGenStatusText(`AI Agent generating questions (step ${attempts}/30)...`)
           }
-        } catch (pollErr) {
+        } catch {
           if (attempts >= maxAttempts) {
             clearInterval(pollInterval)
             setGenError('Generation timeout. The job may still finish in the background.')
@@ -312,13 +311,10 @@ export function ClassDetailPage({ classId, onNavigate }) {
   // Open Challenge Preview
   const handleOpenPreview = async (challengeId) => {
     try {
-      setLoadingPreview(true)
       const data = await api.challenges.get(challengeId)
       setPreviewChallenge(data)
     } catch (err) {
       alert(`Error loading challenge details: ${err.message}`)
-    } finally {
-      setLoadingPreview(false)
     }
   }
 
@@ -402,10 +398,29 @@ export function ClassDetailPage({ classId, onNavigate }) {
   }
 
   const studentMembers = members.filter((m) => m.role === 'STUDENT')
-  const teacherMembers = members.filter((m) => m.role === 'TEACHER' || m.role === 'ADMIN')
 
   return (
     <div className="page-container">
+      {error && (
+        <div
+          style={{
+            backgroundColor: 'rgba(244, 63, 94, 0.15)',
+            border: '1px solid rgba(244, 63, 94, 0.3)',
+            borderRadius: '10px',
+            padding: '12px 16px',
+            color: '#fb7185',
+            fontSize: '0.86rem',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Back Button & Class Header */}
       <div style={{ marginBottom: '20px' }}>
         <button

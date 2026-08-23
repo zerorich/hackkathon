@@ -24,7 +24,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { api } from '../../lib/api'
 
 export function SubjectsPage({ onNavigate }) {
-  const { selectedClassId, selectedClass, classes } = useClass()
+  const { selectedClassId, selectedClass } = useClass()
   const [subjects, setSubjects] = useState([])
   const [selectedSubjectId, setSelectedSubjectId] = useState('')
   const [topics, setTopics] = useState([])
@@ -350,6 +350,26 @@ export function SubjectsPage({ onNavigate }) {
           </Button>
         )}
       </div>
+
+      {error && (
+        <div
+          style={{
+            backgroundColor: 'rgba(244, 63, 94, 0.15)',
+            border: '1px solid rgba(244, 63, 94, 0.3)',
+            borderRadius: '10px',
+            padding: '12px 16px',
+            color: '#fb7185',
+            fontSize: '0.86rem',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {archiveErrorNotice && (
         <div

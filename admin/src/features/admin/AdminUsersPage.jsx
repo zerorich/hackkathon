@@ -2,11 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   ShieldCheck,
   Search,
-  UserCheck,
-  UserX,
   Users,
-  GraduationCap,
-  Sparkles,
   Lock,
   Unlock,
 } from 'lucide-react'
