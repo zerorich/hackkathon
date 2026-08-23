@@ -284,6 +284,56 @@ async def test_ai_chat_uses_uzbek_fallback_for_uzbek_question(client: AsyncClien
 
 
 @pytest.mark.asyncio
+async def test_ai_chat_rephrases_safe_theorem_after_false_positive_block(
+    client: AsyncClient, monkeypatch
+):
+    captured: list[list[dict]] = []
+
+    async def complete(_self, messages, **_kwargs):
+        captured.append(messages)
+        if len(captured) == 1:
+            raise AIClientError(
+                AIClientErrorCode.CLIENT_ERROR,
+                "content-blocked",
+                status_code=400,
+                details={"error": {"code": "content-blocked"}},
+            )
+        return ChatCompletionResponse.model_validate(
+            {
+                "model": "test-model",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "a² + b² = c², masalan 3² + 4² = 5².",
+                        }
+                    }
+                ],
+            }
+        )
+
+    async def close(_self):
+        return None
+
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.chat_completions", complete)
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.close", close)
+    headers = await auth_headers(client, "chat-safe-rephrase@demo.local")
+    created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)
+    conversation_id = created.json()["data"]["id"]
+    response = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "salom, pifagor teoremasini manga tushuntirib ber"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["data"]["fallback_used"] is False
+    assert len(captured) == 2
+    assert "right triangle" in captured[1][1]["content"]
+    assert "pifagor" not in captured[1][1]["content"].casefold()
+
+
+@pytest.mark.asyncio
 async def test_ai_chat_rate_limit_returns_429(client: AsyncClient, monkeypatch):
     headers = await auth_headers(client, "chat-limited@demo.local")
     created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)
