@@ -44,7 +44,7 @@ DEFAULT_MAX_CONCURRENCY = 3
 
 
 class ChallengeOrchestrator:
-    """Supervisor for Maktab AI Arena multi-agent challenge generation."""
+    """Supervisor for Zehn AI multi-agent challenge generation."""
 
     def __init__(
         self,

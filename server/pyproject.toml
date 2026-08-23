@@ -1,7 +1,7 @@
 [project]
-name = "maktab-ai-arena"
+name = "zehn-ai"
 version = "0.1.0"
-description = "Maktab AI Arena — production backend"
+description = "Zehn AI — production backend"
 readme = "STACK.md"
 requires-python = ">=3.11"
 dependencies = [

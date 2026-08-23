@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     app_env: AppEnv = AppEnv.DEVELOPMENT
     app_debug: bool = False
-    app_name: str = "maktab-ai-arena"
+    app_name: str = "Zehn AI"
     app_timezone: str = "Asia/Tashkent"
     api_v1_prefix: str = "/api/v1"
 

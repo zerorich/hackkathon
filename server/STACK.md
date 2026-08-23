@@ -1,6 +1,6 @@
-# Maktab AI Arena — Backend Stack
+# Zehn AI — Backend Stack
 
-**Product:** Maktab AI Arena (school AI challenge platform)  
+**Product:** Zehn AI (school AI challenge platform)
 **API base path:** `/api/v1`  
 **Response envelope:** `{ "data": ... }` / `{ "error": { "code", "message", "details" } }`  
 **Timezone:** `Asia/Tashkent`  

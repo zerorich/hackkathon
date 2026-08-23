@@ -1,3 +1,3 @@
-"""Maktab AI Arena backend application."""
+"""Zehn AI backend application."""
 
 __version__ = "0.1.0"

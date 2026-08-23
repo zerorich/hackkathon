@@ -1,4 +1,4 @@
-# Maktab AI Arena — ТЗ: Aziz (Teacher/Admin — Часть A)
+# Zehn AI — ТЗ: Aziz (Teacher/Admin — Часть A)
 
 **Роль:** operational/management зона teacher/admin React app  
 **Стек:** React, Vite (уже в `admin/`)  
