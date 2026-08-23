@@ -150,6 +150,58 @@ async def test_ai_chat_teacher_can_use_provider_fallback(client: AsyncClient, mo
 
 
 @pytest.mark.asyncio
+async def test_ai_chat_does_not_send_fallback_reply_back_to_provider(
+    client: AsyncClient, monkeypatch
+):
+    captured: list[list[dict]] = []
+
+    async def complete(_self, messages, **_kwargs):
+        captured.append(messages)
+        if len(captured) == 1:
+            raise AIClientError(AIClientErrorCode.NETWORK, "offline")
+        return ChatCompletionResponse.model_validate(
+            {
+                "model": "test-model",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Провайдер снова отвечает.",
+                        }
+                    }
+                ],
+            }
+        )
+
+    async def close(_self):
+        return None
+
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.chat_completions", complete)
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.close", close)
+    headers = await auth_headers(client, "chat-recovery@demo.local")
+    created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)
+    conversation_id = created.json()["data"]["id"]
+
+    first = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "Первый вопрос"},
+        headers=headers,
+    )
+    second = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "Второй вопрос"},
+        headers=headers,
+    )
+
+    assert first.json()["data"]["fallback_used"] is True
+    assert second.json()["data"]["fallback_used"] is False
+    provider_contents = [message["content"] for message in captured[1]]
+    assert "Первый вопрос" in provider_contents
+    assert "Второй вопрос" in provider_contents
+    assert not any("AI-провайдер недоступен" in content for content in provider_contents)
+
+
+@pytest.mark.asyncio
 async def test_ai_chat_rate_limit_returns_429(client: AsyncClient, monkeypatch):
     headers = await auth_headers(client, "chat-limited@demo.local")
     created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.ai.client import AgentRouterClient
@@ -175,7 +175,16 @@ class AiChatService:
     async def _provider_history(self, conversation_id: str) -> list[dict[str, str]]:
         result = await self.db.execute(
             select(AiChatMessage)
-            .where(AiChatMessage.conversation_id == conversation_id)
+            .where(
+                AiChatMessage.conversation_id == conversation_id,
+                or_(
+                    AiChatMessage.role == "USER",
+                    and_(
+                        AiChatMessage.role == "ASSISTANT",
+                        AiChatMessage.provider == "agentrouter",
+                    ),
+                ),
+            )
             .order_by(AiChatMessage.created_at.desc(), AiChatMessage.id.desc())
             .limit(self.settings.ai_chat_context_messages)
         )
