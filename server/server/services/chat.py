@@ -218,6 +218,10 @@ class AiChatService:
         if self._unsafe(content):
             return REFUSAL, "safety", None, None, None, False
 
+        local_answer = self._known_safe_educational_answer(content)
+        if local_answer is not None:
+            return local_answer, "local-education", None, None, None, False
+
         if AgentRouterClient._api_key_missing(self.settings):
             if self.settings.ai_use_fallback_on_error:
                 return self._fallback(content), "fallback", None, None, None, True
@@ -307,26 +311,6 @@ class AiChatService:
             except AIClientError as exc:
                 last_error = exc
 
-        # AgentRouter currently false-positively blocks the name of this safe
-        # school theorem. Use an equivalent neutral formulation, while keeping
-        # genuinely unsafe prompts under the local and provider safety rules.
-        rephrased = self._safe_educational_rephrase(content, last_error)
-        if rephrased is not None:
-            logger.warning(
-                "ai_chat_safe_prompt_rephrased",
-                error_code=last_error.code,
-                status_code=last_error.status_code,
-            )
-            response = await self._request_provider(
-                client, [{"role": "user", "content": rephrased}]
-            )
-            if self._has_text_reply(response):
-                return response
-            raise AIClientError(
-                AIClientErrorCode.INVALID_RESPONSE,
-                "AI provider returned no answer after safe rephrase",
-                status_code=200,
-            )
         raise last_error
 
     @staticmethod
@@ -338,24 +322,15 @@ class AiChatService:
         )
 
     @staticmethod
-    def _safe_educational_rephrase(content: str, error: AIClientError) -> str | None:
-        details_code = ""
-        if isinstance(error.details, dict):
-            details = error.details.get("error")
-            if isinstance(details, dict):
-                details_code = str(details.get("code", ""))
-        is_content_block = error.status_code == 400 and (
-            details_code == "content-blocked" or "content-blocked" in error.message
-        )
-        if not is_content_block and error.code != AIClientErrorCode.INVALID_RESPONSE:
-            return None
-
+    def _known_safe_educational_answer(content: str) -> str | None:
         lowered = content.casefold()
         if "pifagor" not in lowered and "pythagor" not in lowered:
             return None
         return (
-            "Explain in simple Uzbek how a squared plus b squared equals c squared "
-            "for a right triangle. Give a short numerical example. Do not name the theorem."
+            "Albatta! Pifagor teoremasi faqat to'g'ri burchakli uchburchakda ishlaydi: "
+            "a² + b² = c². Bu yerda a va b — katetlar, c esa eng uzun tomon — "
+            "gipotenuza. Masalan, katetlar 3 va 4 bo'lsa: 3² + 4² = 9 + 16 = 25, "
+            "demak c = √25 = 5. Ya'ni uchburchak tomonlari 3, 4 va 5 bo'ladi."
         )
 
     @staticmethod

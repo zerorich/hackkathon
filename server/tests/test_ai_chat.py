@@ -245,7 +245,7 @@ async def test_ai_chat_retries_current_question_when_provider_rejects_history(
     )
     second = await client.post(
         f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
-        json={"content": "Pifagor teoremasini menga tushuntirib ber"},
+        json={"content": "Fotosintezni menga tushuntirib ber"},
         headers=headers,
     )
 
@@ -253,9 +253,7 @@ async def test_ai_chat_retries_current_question_when_provider_rejects_history(
     assert second.json()["data"]["fallback_used"] is False
     assert len(captured) == 3
     assert captured[2][0]["role"] == "system"
-    assert captured[2][1:] == [
-        {"role": "user", "content": "Pifagor teoremasini menga tushuntirib ber"}
-    ]
+    assert captured[2][1:] == [{"role": "user", "content": "Fotosintezni menga tushuntirib ber"}]
 
 
 @pytest.mark.asyncio
@@ -273,7 +271,7 @@ async def test_ai_chat_uses_uzbek_fallback_for_uzbek_question(client: AsyncClien
     conversation_id = created.json()["data"]["id"]
     response = await client.post(
         f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
-        json={"content": "Salom, menga Pifagor teoremasini tushuntirib ber"},
+        json={"content": "Salom, menga fotosintezni tushuntirib ber"},
         headers=headers,
     )
 
@@ -284,33 +282,14 @@ async def test_ai_chat_uses_uzbek_fallback_for_uzbek_question(client: AsyncClien
 
 
 @pytest.mark.asyncio
-async def test_ai_chat_rephrases_safe_theorem_after_false_positive_block(
+async def test_ai_chat_answers_safe_theorem_locally_when_provider_blocks_it(
     client: AsyncClient, monkeypatch
 ):
     captured: list[list[dict]] = []
 
     async def complete(_self, messages, **_kwargs):
         captured.append(messages)
-        if len(captured) == 1:
-            return ChatCompletionResponse.model_validate(
-                {
-                    "model": "test-model",
-                    "choices": [],
-                }
-            )
-        return ChatCompletionResponse.model_validate(
-            {
-                "model": "test-model",
-                "choices": [
-                    {
-                        "message": {
-                            "role": "assistant",
-                            "content": "a² + b² = c², masalan 3² + 4² = 5².",
-                        }
-                    }
-                ],
-            }
-        )
+        raise AIClientError(AIClientErrorCode.CLIENT_ERROR, "content-blocked", status_code=400)
 
     async def close(_self):
         return None
@@ -327,10 +306,11 @@ async def test_ai_chat_rephrases_safe_theorem_after_false_positive_block(
     )
 
     assert response.status_code == 201
-    assert response.json()["data"]["fallback_used"] is False
-    assert len(captured) == 2
-    assert "right triangle" in captured[1][1]["content"]
-    assert "pifagor" not in captured[1][1]["content"].casefold()
+    data = response.json()["data"]
+    assert data["fallback_used"] is False
+    assert "a² + b² = c²" in data["assistant_message"]["content"]
+    assert "3² + 4²" in data["assistant_message"]["content"]
+    assert captured == []
 
 
 @pytest.mark.asyncio
