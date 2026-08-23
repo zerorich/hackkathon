@@ -1,6 +1,6 @@
 ./admin/node_modules
 ./client/node_modules
-./server/node_modules
+./server/.venv/
 ./server/.env
 .env
 .venv/
@@ -16,3 +16,6 @@ dist/
 build/
 .coverage
 htmlcov/
+server/maktab.db
+server/.pytest_cache/
+server/.ruff_cache/
