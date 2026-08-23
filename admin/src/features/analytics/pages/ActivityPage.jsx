@@ -78,8 +78,8 @@ export function ActivityPage() {
       case 'ATTEMPT_COMPLETED':
         return {
           icon: CheckCircle2,
-          color: '#34d399',
-          bg: 'rgba(16, 185, 129, 0.15)',
+          color: 'var(--success)',
+          bg: 'var(--success-light)',
           label: 'Challenge Completed',
           badgeVariant: 'success',
         }
@@ -87,24 +87,24 @@ export function ActivityPage() {
       case 'DUEL_COMPLETED':
         return {
           icon: Swords,
-          color: '#fbbf24',
-          bg: 'rgba(245, 158, 11, 0.15)',
+          color: 'var(--warning)',
+          bg: 'var(--warning-light)',
           label: 'PvP Duel Won',
           badgeVariant: 'warning',
         }
       case 'JOINED_CLASS':
         return {
           icon: UserPlus,
-          color: '#818cf8',
-          bg: 'rgba(99, 102, 241, 0.15)',
+          color: 'var(--primary)',
+          bg: 'var(--primary-light)',
           label: 'Student Joined',
           badgeVariant: 'primary',
         }
       case 'CREATED_CHALLENGE':
         return {
           icon: Sparkles,
-          color: '#c084fc',
-          bg: 'rgba(168, 85, 247, 0.15)',
+          color: 'var(--purple)',
+          bg: 'var(--purple-light)',
           label: 'AI Challenge Generated',
           badgeVariant: 'purple',
         }
@@ -112,7 +112,7 @@ export function ActivityPage() {
         return {
           icon: Activity,
           color: '#94a3b8',
-          bg: 'rgba(255, 255, 255, 0.08)',
+          bg: '#f1f5f9',
           label: type.replace(/_/g, ' '),
           badgeVariant: 'neutral',
         }
@@ -125,7 +125,7 @@ export function ActivityPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            <Activity className="w-6 h-6 text-indigo-400" />
+            <Activity className="w-6 h-6 text-blue-600" />
             Live Activity Stream
           </h1>
           <p className="page-subtitle">
@@ -237,7 +237,7 @@ export function ActivityPage() {
                           </span>
                         )}
                         {payloadObj.score !== undefined && (
-                          <span style={{ color: '#818cf8', fontWeight: '600', marginRight: '8px' }}>
+                          <span style={{ color: 'var(--primary)', fontWeight: '600', marginRight: '8px' }}>
                             +{payloadObj.score} XP
                           </span>
                         )}
@@ -247,7 +247,7 @@ export function ActivityPage() {
                           </span>
                         )}
                         {payloadObj.winner_id && (
-                          <span style={{ color: '#fbbf24', fontWeight: '600' }}>
+                          <span style={{ color: 'var(--warning)', fontWeight: '600' }}>
                             Winner ID: {payloadObj.winner_id}
                           </span>
                         )}

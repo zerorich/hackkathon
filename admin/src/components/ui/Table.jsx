@@ -5,8 +5,8 @@ export function Table({ headers = [], children, style = {}, className = '' }) {
         width: '100%',
         overflowX: 'auto',
         borderRadius: 'var(--radius-lg, 12px)',
-        border: '1px solid var(--border-card, rgba(255, 255, 255, 0.08))',
-        backgroundColor: 'rgba(11, 17, 30, 0.4)',
+        border: '1px solid var(--border-card, #e2e8f0)',
+        backgroundColor: '#ffffff',
         ...style,
       }}
       className={className}
@@ -23,8 +23,8 @@ export function Table({ headers = [], children, style = {}, className = '' }) {
         <thead>
           <tr
             style={{
-              borderBottom: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))',
-              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+              borderBottom: '1px solid var(--border-subtle, #e8ecf1)',
+              backgroundColor: '#f8f9fb',
             }}
           >
             {headers.map((h, i) => (
@@ -33,7 +33,7 @@ export function Table({ headers = [], children, style = {}, className = '' }) {
                 style={{
                   padding: '12px 16px',
                   fontWeight: '600',
-                  color: 'var(--text-muted, #64748b)',
+                  color: 'var(--text-secondary, #64748b)',
                   fontSize: '0.74rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
@@ -56,14 +56,14 @@ export function TableRow({ children, onClick, style = {}, className = '' }) {
     <tr
       onClick={onClick}
       style={{
-        borderBottom: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.05))',
+        borderBottom: '1px solid var(--border-subtle, #e8ecf1)',
         transition: 'background-color 0.15s ease',
         cursor: onClick ? 'pointer' : 'default',
         ...style,
       }}
       className={className}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)'
+        e.currentTarget.style.backgroundColor = '#f8f9fb'
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = 'transparent'
@@ -79,7 +79,7 @@ export function TableCell({ children, style = {}, className = '' }) {
     <td
       style={{
         padding: '14px 16px',
-        color: 'var(--text-primary, #f8fafc)',
+        color: 'var(--text-primary, #1e293b)',
         verticalAlign: 'middle',
         ...style,
       }}

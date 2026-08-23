@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, ArrowRight, ShieldCheck, Mail, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, ShieldCheck, Mail, KeyRound, AlertCircle, CheckCircle2, Home } from 'lucide-react'
 import { useAuth } from '../../stores/AuthContext'
 import { Button } from '../../components/ui/Button'
 
@@ -60,19 +60,18 @@ export function LoginView() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '24px',
-        background: 'radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 60%), #090d16',
+        background: 'linear-gradient(135deg, #eff6ff 0%, #f5f6fa 50%, #ede9fe 100%)',
       }}
     >
       <div
         style={{
           width: '100%',
           maxWidth: '440px',
-          background: 'rgba(18, 24, 38, 0.85)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
+          background: '#ffffff',
+          border: '1px solid var(--border-card)',
           borderRadius: '20px',
           padding: '36px 32px',
-          boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.7)',
+          boxShadow: '0 20px 60px -15px rgba(0, 0, 0, 0.1), 0 4px 12px -4px rgba(0, 0, 0, 0.05)',
         }}
       >
         {/* Header */}
@@ -82,18 +81,18 @@ export function LoginView() {
               width: '52px',
               height: '52px',
               borderRadius: '14px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+              background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: '16px',
-              boxShadow: '0 0 24px rgba(99, 102, 241, 0.5)',
+              boxShadow: '0 4px 16px rgba(37, 99, 235, 0.3)',
             }}
           >
-            <Sparkles className="w-7 h-7 text-white" />
+            <Home style={{ width: '28px', height: '28px', color: '#fff' }} />
           </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: '#fff' }}>
-            Maktab <span style={{ color: '#818cf8' }}>AI Arena</span>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+            Maktab <span style={{ color: 'var(--primary)' }}>AI Arena</span>
           </h2>
           <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
             Teacher & Admin Analytics Portal
@@ -109,14 +108,14 @@ export function LoginView() {
               gap: '10px',
               padding: '12px 14px',
               borderRadius: '10px',
-              backgroundColor: 'rgba(244, 63, 94, 0.12)',
-              border: '1px solid rgba(244, 63, 94, 0.3)',
-              color: '#fb7185',
+              backgroundColor: 'var(--danger-light)',
+              border: '1px solid var(--danger-border)',
+              color: 'var(--danger)',
               fontSize: '0.82rem',
               marginBottom: '20px',
             }}
           >
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <AlertCircle style={{ width: '16px', height: '16px', flexShrink: 0 }} />
             <span>{localError || authError}</span>
           </div>
         )}
@@ -128,8 +127,7 @@ export function LoginView() {
               <label className="form-label">Teacher / Admin Email</label>
               <div style={{ position: 'relative' }}>
                 <Mail
-                  className="w-4 h-4 text-slate-400"
-                  style={{ position: 'absolute', left: '12px', top: '11px' }}
+                  style={{ width: '16px', height: '16px', color: 'var(--text-muted)', position: 'absolute', left: '12px', top: '11px' }}
                 />
                 <input
                   type="email"
@@ -150,7 +148,7 @@ export function LoginView() {
               style={{ width: '100%', marginTop: '8px' }}
             >
               <span>Continue with OTP</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight style={{ width: '16px', height: '16px' }} />
             </Button>
           </div>
         ) : (
@@ -163,14 +161,14 @@ export function LoginView() {
                 gap: '8px',
                 padding: '10px 12px',
                 borderRadius: '8px',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
-                color: '#34d399',
+                backgroundColor: 'var(--success-light)',
+                border: '1px solid var(--success-border)',
+                color: 'var(--success)',
                 fontSize: '0.8rem',
                 marginBottom: '16px',
               }}
             >
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              <CheckCircle2 style={{ width: '16px', height: '16px', flexShrink: 0 }} />
               <span>{otpSentMessage || 'OTP sent! Use demo code: 123456'}</span>
             </div>
 
@@ -178,8 +176,7 @@ export function LoginView() {
               <label className="form-label">Enter 6-Digit OTP</label>
               <div style={{ position: 'relative' }}>
                 <KeyRound
-                  className="w-4 h-4 text-slate-400"
-                  style={{ position: 'absolute', left: '12px', top: '11px' }}
+                  style={{ width: '16px', height: '16px', color: 'var(--text-muted)', position: 'absolute', left: '12px', top: '11px' }}
                 />
                 <input
                   type="text"
@@ -201,7 +198,7 @@ export function LoginView() {
               style={{ width: '100%', marginTop: '8px' }}
             >
               <span>Verify & Sign In</span>
-              <ShieldCheck className="w-4 h-4" />
+              <ShieldCheck style={{ width: '16px', height: '16px' }} />
             </Button>
 
             <button
@@ -216,6 +213,7 @@ export function LoginView() {
                 fontSize: '0.8rem',
                 cursor: 'pointer',
                 textAlign: 'center',
+                fontFamily: 'inherit',
               }}
             >
               ← Change email / identifier

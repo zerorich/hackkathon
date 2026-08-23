@@ -136,7 +136,7 @@ export function DashboardPage({ onNavigate }) {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            <TrendingUp className="w-6 h-6 text-indigo-400" />
+            <TrendingUp className="w-6 h-6 text-blue-600" />
             Class Analytics Dashboard
           </h1>
           <p className="page-subtitle">
@@ -247,7 +247,7 @@ export function DashboardPage({ onNavigate }) {
         >
           {weak_topics.length === 0 ? (
             <div style={{ padding: '30px 0', textAlign: 'center' }}>
-              <CheckCircle2 className="w-10 h-10 text-emerald-400" style={{ margin: '0 auto 8px' }} />
+              <CheckCircle2 className="w-10 h-10 text-green-600" style={{ margin: '0 auto 8px' }} />
               <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>All Topics on Track!</div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                 No topics currently have average accuracy below 60%.
@@ -264,8 +264,8 @@ export function DashboardPage({ onNavigate }) {
                     justifyContent: 'space-between',
                     padding: '12px 14px',
                     borderRadius: '10px',
-                    backgroundColor: 'rgba(244, 63, 94, 0.08)',
-                    border: '1px solid rgba(244, 63, 94, 0.25)',
+                    backgroundColor: 'var(--danger-light)',
+                    border: '1px solid var(--danger-border)',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -274,8 +274,8 @@ export function DashboardPage({ onNavigate }) {
                         width: '8px',
                         height: '8px',
                         borderRadius: '50%',
-                        backgroundColor: '#f43f5e',
-                        boxShadow: '0 0 8px #f43f5e',
+                        backgroundColor: 'var(--danger)',
+                        boxShadow: '0 0 8px var(--danger)',
                       }}
                     />
                     <div>
@@ -347,7 +347,7 @@ export function DashboardPage({ onNavigate }) {
                         <span
                           style={{
                             fontWeight: '800',
-                            color: idx === 0 ? '#fbbf24' : idx === 1 ? '#94a3b8' : idx === 2 ? '#d97706' : 'var(--text-muted)',
+                            color: idx === 0 ? 'var(--warning)' : idx === 1 ? '#94a3b8' : idx === 2 ? 'var(--warning)' : 'var(--text-muted)',
                           }}
                         >
                           #{idx + 1}
@@ -362,7 +362,7 @@ export function DashboardPage({ onNavigate }) {
                         <Badge variant="purple">{formatNumber(student.total_xp)} XP</Badge>
                       </td>
                       <td>
-                        <span style={{ fontSize: '0.82rem', color: '#f59e0b' }}>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--warning)' }}>
                           🔥 {student.streak || 0}
                         </span>
                       </td>
@@ -411,11 +411,11 @@ export function DashboardPage({ onNavigate }) {
                       className="activity-icon-wrapper"
                       style={{
                         backgroundColor: isAttempt
-                          ? 'rgba(16, 185, 129, 0.15)'
+                          ? 'var(--success-light)'
                           : isDuel
-                          ? 'rgba(245, 158, 11, 0.15)'
-                          : 'rgba(99, 102, 241, 0.15)',
-                        color: isAttempt ? '#34d399' : isDuel ? '#fbbf24' : '#818cf8',
+                          ? 'var(--warning-light)'
+                          : 'var(--primary-light)',
+                        color: isAttempt ? 'var(--success)' : isDuel ? 'var(--warning)' : 'var(--primary)',
                       }}
                     >
                       {isAttempt ? (

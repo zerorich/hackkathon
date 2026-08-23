@@ -73,7 +73,7 @@ export function ClassesPage({ onNavigate }) {
       <div className="page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <GraduationCap className="w-6 h-6 text-indigo-400" />
+            <GraduationCap className="w-6 h-6 text-blue-600" />
             Class Management & Rosters
           </h1>
           <p className="page-subtitle">
@@ -112,8 +112,8 @@ export function ClassesPage({ onNavigate }) {
               <Card
                 key={cls.id}
                 style={{
-                  border: isSelected ? '1.5px solid #6366f1' : '1px solid var(--border-card)',
-                  boxShadow: isSelected ? '0 0 20px -5px rgba(99, 102, 241, 0.3)' : 'none',
+                  border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-card)',
+                  boxShadow: isSelected ? '0 0 20px -5px rgba(37, 99, 235, 0.15)' : 'none',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
@@ -128,12 +128,12 @@ export function ClassesPage({ onNavigate }) {
                           width: '42px',
                           height: '42px',
                           borderRadius: '12px',
-                          backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                          color: '#818cf8',
+                          backgroundColor: 'var(--primary-light)',
+                          color: 'var(--primary)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          border: '1px solid rgba(99, 102, 241, 0.25)',
+                          border: '1px solid rgba(37, 99, 235, 0.15)',
                         }}
                       >
                         <GraduationCap className="w-6 h-6" />
@@ -201,7 +201,7 @@ export function ClassesPage({ onNavigate }) {
                         size="sm"
                         onClick={() => handleCopyInvite(cls.invite_code, cls.id)}
                         icon={isCopied ? Check : Copy}
-                        style={{ color: isCopied ? '#34d399' : undefined }}
+                        style={{ color: isCopied ? 'var(--success)' : undefined }}
                       >
                         {isCopied ? 'Copied' : 'Copy'}
                       </Button>
@@ -301,8 +301,8 @@ export function ClassesPage({ onNavigate }) {
                 width: '56px',
                 height: '56px',
                 borderRadius: '50%',
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                color: '#10b981',
+                backgroundColor: 'var(--success-light)',
+                color: 'var(--success)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -321,8 +321,8 @@ export function ClassesPage({ onNavigate }) {
 
             <div
               style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                border: '1.5px dashed rgba(99, 102, 241, 0.5)',
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                border: '1.5px dashed rgba(37, 99, 235, 0.25)',
                 borderRadius: '12px',
                 padding: '16px',
                 display: 'flex',
@@ -358,11 +358,11 @@ export function ClassesPage({ onNavigate }) {
             {formError && (
               <div
                 style={{
-                  backgroundColor: 'rgba(244, 63, 94, 0.15)',
-                  border: '1px solid rgba(244, 63, 94, 0.3)',
+                  backgroundColor: 'var(--danger-light)',
+                  border: '1px solid var(--danger-border)',
                   borderRadius: '8px',
                   padding: '10px 14px',
-                  color: '#fb7185',
+                  color: 'var(--danger)',
                   fontSize: '0.84rem',
                   marginBottom: '16px',
                 }}

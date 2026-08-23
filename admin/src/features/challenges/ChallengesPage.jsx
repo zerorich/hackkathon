@@ -481,8 +481,8 @@ export function ChallengesPage() {
                 width: '60px',
                 height: '60px',
                 borderRadius: '50%',
-                backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                color: '#818cf8',
+                backgroundColor: 'var(--primary-light)',
+                color: 'var(--primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -502,7 +502,7 @@ export function ChallengesPage() {
         ) : (
           <form onSubmit={handleTriggerAIGen}>
             {genError && (
-              <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '8px', padding: '10px 14px', color: '#fb7185', fontSize: '0.84rem', marginBottom: '16px' }}>
+              <div style={{ backgroundColor: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--danger)', fontSize: '0.84rem', marginBottom: '16px' }}>
                 {genError}
               </div>
             )}
@@ -570,7 +570,7 @@ export function ChallengesPage() {
       >
         <form onSubmit={handleCreateManual}>
           {manualError && (
-            <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '8px', padding: '10px 14px', color: '#fb7185', fontSize: '0.84rem', marginBottom: '16px' }}>
+            <div style={{ backgroundColor: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--danger)', fontSize: '0.84rem', marginBottom: '16px' }}>
               {manualError}
             </div>
           )}
@@ -627,7 +627,7 @@ export function ChallengesPage() {
                   marginBottom: '12px',
                 }}
               >
-                <div style={{ fontWeight: '700', fontSize: '0.84rem', color: '#818cf8', marginBottom: '8px' }}>
+                <div style={{ fontWeight: '700', fontSize: '0.84rem', color: 'var(--primary)', marginBottom: '8px' }}>
                   Question {qIdx + 1}
                 </div>
 
@@ -650,7 +650,7 @@ export function ChallengesPage() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        backgroundColor: opt.is_correct ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                        backgroundColor: opt.is_correct ? 'var(--success-light)' : '#f8f9fb',
                         border: opt.is_correct ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
                         borderRadius: '8px',
                         padding: '6px 10px',
@@ -735,7 +735,7 @@ export function ChallengesPage() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontWeight: '700', color: '#818cf8', fontSize: '0.85rem' }}>
+              <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '0.85rem' }}>
                 Question {idx + 1}
               </span>
               <Badge variant="neutral" style={{ fontSize: '0.7rem' }}>
@@ -752,12 +752,12 @@ export function ChallengesPage() {
                 <div
                   key={opt.id || oIdx}
                   style={{
-                    backgroundColor: opt.is_correct ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-                    border: opt.is_correct ? '1px solid #10b981' : '1px solid var(--border-subtle)',
+                    backgroundColor: opt.is_correct ? 'var(--success-light)' : 'rgba(255, 255, 255, 0.04)',
+                    border: opt.is_correct ? '1px solid var(--success)' : '1px solid var(--border-subtle)',
                     borderRadius: '8px',
                     padding: '8px 12px',
                     fontSize: '0.84rem',
-                    color: opt.is_correct ? '#34d399' : 'var(--text-secondary)',
+                    color: opt.is_correct ? 'var(--success)' : 'var(--text-secondary)',
                     fontWeight: opt.is_correct ? '700' : '400',
                     display: 'flex',
                     alignItems: 'center',
@@ -765,7 +765,7 @@ export function ChallengesPage() {
                   }}
                 >
                   <span>{opt.text}</span>
-                  {opt.is_correct && <Check className="w-4 h-4 text-emerald-400" />}
+                  {opt.is_correct && <Check className="w-4 h-4 text-green-600" />}
                 </div>
               ))}
             </div>
@@ -783,7 +783,7 @@ export function ChallengesPage() {
                   gap: '6px',
                 }}
               >
-                <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 text-indigo-400 mt-0.5" />
+                <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 text-blue-600 mt-0.5" />
                 <span>Explanation: {q.explanation}</span>
               </div>
             )}

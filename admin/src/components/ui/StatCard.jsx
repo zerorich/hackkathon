@@ -12,54 +12,46 @@ export function StatCard({
 }) {
   const colorStyles = {
     primary: {
-      bg: 'rgba(99, 102, 241, 0.12)',
-      text: '#818cf8',
-      border: 'rgba(99, 102, 241, 0.25)',
-      glow: '0 0 20px -5px rgba(99, 102, 241, 0.25)',
+      bg: 'rgba(37, 99, 235, 0.08)',
+      text: '#2563eb',
+      border: 'rgba(37, 99, 235, 0.15)',
     },
     cyan: {
-      bg: 'rgba(6, 182, 212, 0.12)',
-      text: '#22d3ee',
-      border: 'rgba(6, 182, 212, 0.25)',
-      glow: '0 0 20px -5px rgba(6, 182, 212, 0.25)',
+      bg: 'rgba(8, 145, 178, 0.08)',
+      text: '#0891b2',
+      border: 'rgba(8, 145, 178, 0.15)',
     },
     success: {
-      bg: 'rgba(16, 185, 129, 0.12)',
-      text: '#34d399',
-      border: 'rgba(16, 185, 129, 0.25)',
-      glow: '0 0 20px -5px rgba(16, 185, 129, 0.25)',
+      bg: 'rgba(22, 163, 74, 0.08)',
+      text: '#16a34a',
+      border: 'rgba(22, 163, 74, 0.15)',
     },
     warning: {
-      bg: 'rgba(245, 158, 11, 0.12)',
-      text: '#fbbf24',
-      border: 'rgba(245, 158, 11, 0.25)',
-      glow: '0 0 20px -5px rgba(245, 158, 11, 0.25)',
+      bg: 'rgba(217, 119, 6, 0.08)',
+      text: '#d97706',
+      border: 'rgba(217, 119, 6, 0.15)',
     },
     danger: {
-      bg: 'rgba(244, 63, 94, 0.12)',
-      text: '#fb7185',
-      border: 'rgba(244, 63, 94, 0.25)',
-      glow: '0 0 20px -5px rgba(244, 63, 94, 0.25)',
+      bg: 'rgba(220, 38, 38, 0.08)',
+      text: '#dc2626',
+      border: 'rgba(220, 38, 38, 0.15)',
     },
     purple: {
-      bg: 'rgba(168, 85, 247, 0.12)',
-      text: '#c084fc',
-      border: 'rgba(168, 85, 247, 0.25)',
-      glow: '0 0 20px -5px rgba(168, 85, 247, 0.25)',
+      bg: 'rgba(124, 58, 237, 0.08)',
+      text: '#7c3aed',
+      border: 'rgba(124, 58, 237, 0.15)',
     },
   }[color] || {
-    bg: 'rgba(99, 102, 241, 0.12)',
-    text: '#818cf8',
-    border: 'rgba(99, 102, 241, 0.25)',
-    glow: 'none',
+    bg: 'rgba(37, 99, 235, 0.08)',
+    text: '#2563eb',
+    border: 'rgba(37, 99, 235, 0.15)',
   }
 
   return (
     <div
       className={cn('stat-card animate-fade-in', className)}
       style={{
-        boxShadow: colorStyles.glow,
-        borderTop: `2px solid ${colorStyles.text}`,
+        borderTop: `3px solid ${colorStyles.text}`,
       }}
       {...props}
     >
@@ -74,7 +66,7 @@ export function StatCard({
               border: `1px solid ${colorStyles.border}`,
             }}
           >
-            <Icon className="w-5 h-5" />
+            <Icon style={{ width: '20px', height: '20px' }} />
           </div>
         )}
       </div>

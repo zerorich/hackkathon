@@ -354,11 +354,11 @@ export function SubjectsPage({ onNavigate }) {
       {error && (
         <div
           style={{
-            backgroundColor: 'rgba(244, 63, 94, 0.15)',
-            border: '1px solid rgba(244, 63, 94, 0.3)',
+            backgroundColor: 'var(--danger-light)',
+            border: '1px solid var(--danger-border)',
             borderRadius: '10px',
             padding: '12px 16px',
-            color: '#fb7185',
+            color: 'var(--danger)',
             fontSize: '0.86rem',
             marginBottom: '20px',
             display: 'flex',
@@ -374,11 +374,11 @@ export function SubjectsPage({ onNavigate }) {
       {archiveErrorNotice && (
         <div
           style={{
-            backgroundColor: 'rgba(244, 63, 94, 0.15)',
-            border: '1px solid rgba(244, 63, 94, 0.3)',
+            backgroundColor: 'var(--danger-light)',
+            border: '1px solid var(--danger-border)',
             borderRadius: '10px',
             padding: '12px 16px',
-            color: '#fb7185',
+            color: 'var(--danger)',
             fontSize: '0.86rem',
             marginBottom: '20px',
             display: 'flex',
@@ -421,18 +421,18 @@ export function SubjectsPage({ onNavigate }) {
                   key={subj.id}
                   onClick={() => setSelectedSubjectId(subj.id)}
                   style={{
-                    backgroundColor: isSelected ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-card)',
-                    border: isSelected ? '1.5px solid #6366f1' : '1px solid var(--border-card)',
+                    backgroundColor: isSelected ? 'var(--primary-light)' : 'var(--bg-card)',
+                    border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-card)',
                     borderRadius: 'var(--radius-md)',
                     padding: '14px 16px',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 0 15px -3px rgba(99, 102, 241, 0.3)' : 'none',
+                    boxShadow: isSelected ? '0 0 15px -3px rgba(37, 99, 235, 0.15)' : 'none',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <BookOpen className={`w-4 h-4 ${isSelected ? 'text-indigo-400' : 'text-slate-400'}`} />
+                      <BookOpen className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
                       <span style={{ fontWeight: '700', fontSize: '0.92rem', color: isSelected ? '#fff' : 'var(--text-primary)' }}>
                         {subj.name}
                       </span>
@@ -455,7 +455,7 @@ export function SubjectsPage({ onNavigate }) {
                           setArchiveErrorNotice(null)
                           setSubjectToArchive(subj)
                         }}
-                        style={{ background: 'transparent', border: 'none', color: '#fb7185', cursor: 'pointer', padding: '4px' }}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}
                         title="Archive Subject"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -605,7 +605,7 @@ export function SubjectsPage({ onNavigate }) {
                         size="sm"
                         icon={Trash2}
                         onClick={() => setTopicToArchive(topic)}
-                        style={{ color: '#fb7185' }}
+                        style={{ color: 'var(--danger)' }}
                         title="Archive Topic"
                       />
                     </div>
@@ -636,7 +636,7 @@ export function SubjectsPage({ onNavigate }) {
       >
         <form onSubmit={handleSaveSubject}>
           {subjectError && (
-            <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '8px', padding: '10px 14px', color: '#fb7185', fontSize: '0.84rem', marginBottom: '16px' }}>
+            <div style={{ backgroundColor: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--danger)', fontSize: '0.84rem', marginBottom: '16px' }}>
               {subjectError}
             </div>
           )}
@@ -692,7 +692,7 @@ export function SubjectsPage({ onNavigate }) {
       >
         <form onSubmit={handleSaveTopic}>
           {topicError && (
-            <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '8px', padding: '10px 14px', color: '#fb7185', fontSize: '0.84rem', marginBottom: '16px' }}>
+            <div style={{ backgroundColor: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--danger)', fontSize: '0.84rem', marginBottom: '16px' }}>
               {topicError}
             </div>
           )}
@@ -785,8 +785,8 @@ export function SubjectsPage({ onNavigate }) {
                 width: '60px',
                 height: '60px',
                 borderRadius: '50%',
-                backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                color: '#818cf8',
+                backgroundColor: 'var(--primary-light)',
+                color: 'var(--primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -806,7 +806,7 @@ export function SubjectsPage({ onNavigate }) {
         ) : (
           <form onSubmit={handleTriggerAIGenForTopic}>
             {genError && (
-              <div style={{ backgroundColor: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', borderRadius: '8px', padding: '10px 14px', color: '#fb7185', fontSize: '0.84rem', marginBottom: '16px' }}>
+              <div style={{ backgroundColor: 'var(--danger-light)', border: '1px solid var(--danger-border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--danger)', fontSize: '0.84rem', marginBottom: '16px' }}>
                 {genError}
               </div>
             )}
@@ -944,7 +944,7 @@ export function SubjectsPage({ onNavigate }) {
               marginBottom: '12px',
             }}
           >
-            <div style={{ fontWeight: '700', color: '#818cf8', fontSize: '0.84rem', marginBottom: '6px' }}>
+            <div style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '0.84rem', marginBottom: '6px' }}>
               Q{idx + 1}: {q.prompt}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
@@ -952,12 +952,12 @@ export function SubjectsPage({ onNavigate }) {
                 <div
                   key={opt.id || oIdx}
                   style={{
-                    backgroundColor: opt.is_correct ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                    border: opt.is_correct ? '1px solid #10b981' : '1px solid var(--border-subtle)',
+                    backgroundColor: opt.is_correct ? 'var(--success-light)' : '#f8f9fb',
+                    border: opt.is_correct ? '1px solid var(--success)' : '1px solid var(--border-subtle)',
                     borderRadius: '6px',
                     padding: '6px 10px',
                     fontSize: '0.8rem',
-                    color: opt.is_correct ? '#34d399' : 'var(--text-secondary)',
+                    color: opt.is_correct ? 'var(--success)' : 'var(--text-secondary)',
                     fontWeight: opt.is_correct ? '700' : '400',
                     display: 'flex',
                     alignItems: 'center',
@@ -965,13 +965,13 @@ export function SubjectsPage({ onNavigate }) {
                   }}
                 >
                   <span>{opt.text}</span>
-                  {opt.is_correct && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                  {opt.is_correct && <Check className="w-3.5 h-3.5 text-green-600" />}
                 </div>
               ))}
             </div>
             {q.explanation && (
               <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <HelpCircle className="w-3 h-3 text-indigo-400" />
+                <HelpCircle className="w-3 h-3 text-blue-600" />
                 <span>{q.explanation}</span>
               </div>
             )}

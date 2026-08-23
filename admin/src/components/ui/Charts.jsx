@@ -36,8 +36,7 @@ export function AccuracyBarChart({ data = [], height = 220 }) {
           const label = item.title || item.name || `Topic ${idx + 1}`
           const isWeak = item.is_weak || accuracy < 60
 
-          const barColor = accuracy >= 75 ? '#10b981' : accuracy >= 60 ? '#f59e0b' : '#f43f5e'
-          const glowColor = accuracy >= 75 ? 'rgba(16, 185, 129, 0.3)' : accuracy >= 60 ? 'rgba(245, 158, 11, 0.3)' : 'rgba(244, 63, 94, 0.3)'
+          const barColor = accuracy >= 75 ? '#16a34a' : accuracy >= 60 ? '#d97706' : '#dc2626'
 
           return (
             <div
@@ -62,22 +61,22 @@ export function AccuracyBarChart({ data = [], height = 220 }) {
                   style={{
                     position: 'absolute',
                     bottom: `calc(${barHeightPercent}% + 12px)`,
-                    background: '#1e293b',
-                    color: '#fff',
-                    padding: '4px 8px',
-                    borderRadius: '6px',
+                    background: '#ffffff',
+                    color: 'var(--text-primary)',
+                    padding: '6px 10px',
+                    borderRadius: '8px',
                     fontSize: '0.75rem',
                     fontWeight: '600',
                     whiteSpace: 'nowrap',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                    border: '1px solid var(--border-card)',
                     zIndex: 20,
                     pointerEvents: 'none',
                   }}
                 >
                   <div>{label}</div>
                   <div style={{ color: barColor }}>{formatPercent(accuracy)} accuracy</div>
-                  {isWeak && <div style={{ color: '#fb7185', fontSize: '0.7rem' }}>⚠️ Needs Attention</div>}
+                  {isWeak && <div style={{ color: 'var(--danger)', fontSize: '0.7rem' }}>⚠️ Needs Attention</div>}
                 </div>
               )}
 
@@ -86,11 +85,11 @@ export function AccuracyBarChart({ data = [], height = 220 }) {
                 style={{
                   width: `${barWidth}px`,
                   height: `${Math.max(4, barHeightPercent)}%`,
-                  background: `linear-gradient(180deg, ${barColor} 0%, ${barColor}aa 100%)`,
+                  background: barColor,
                   borderRadius: '6px 6px 2px 2px',
-                  boxShadow: hoveredIdx === idx ? `0 0 12px ${glowColor}` : 'none',
+                  boxShadow: hoveredIdx === idx ? `0 2px 8px ${barColor}33` : 'none',
                   transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                  opacity: hoveredIdx === null || hoveredIdx === idx ? 1 : 0.6,
+                  opacity: hoveredIdx === null || hoveredIdx === idx ? 1 : 0.5,
                 }}
               />
 
@@ -121,10 +120,10 @@ export function AccuracyBarChart({ data = [], height = 220 }) {
 
 export function MasteryDonutChart({ distribution = {}, totalStudents = 0, size = 180 }) {
   const categories = [
-    { key: 'MASTERED', label: 'Mastered', color: '#10b981', count: distribution['MASTERED'] || 0 },
-    { key: 'PROFICIENT', label: 'Proficient', color: '#6366f1', count: distribution['PROFICIENT'] || 0 },
-    { key: 'DEVELOPING', label: 'Developing', color: '#f59e0b', count: distribution['DEVELOPING'] || 0 },
-    { key: 'NEEDS_PRACTICE', label: 'Needs Practice', color: '#f43f5e', count: distribution['NEEDS_PRACTICE'] || 0 },
+    { key: 'MASTERED', label: 'Mastered', color: '#16a34a', count: distribution['MASTERED'] || 0 },
+    { key: 'PROFICIENT', label: 'Proficient', color: '#2563eb', count: distribution['PROFICIENT'] || 0 },
+    { key: 'DEVELOPING', label: 'Developing', color: '#d97706', count: distribution['DEVELOPING'] || 0 },
+    { key: 'NEEDS_PRACTICE', label: 'Needs Practice', color: '#dc2626', count: distribution['NEEDS_PRACTICE'] || 0 },
   ]
 
   const total = categories.reduce((sum, c) => sum + c.count, 0) || totalStudents || 0
@@ -145,7 +144,7 @@ export function MasteryDonutChart({ distribution = {}, totalStudents = 0, size =
             cy={center}
             r={radius}
             fill="transparent"
-            stroke="rgba(255, 255, 255, 0.05)"
+            stroke="#e2e8f0"
             strokeWidth={strokeWidth}
           />
           {total > 0 &&
@@ -223,7 +222,7 @@ export function AccuracyGauge({ value = 0, size = 120, label = 'Accuracy' }) {
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (percentage / 100) * circumference
 
-  const color = percentage >= 75 ? '#10b981' : percentage >= 50 ? '#f59e0b' : '#f43f5e'
+  const color = percentage >= 75 ? '#16a34a' : percentage >= 50 ? '#d97706' : '#dc2626'
 
   return (
     <div style={{ position: 'relative', width: size, height: size, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -233,7 +232,7 @@ export function AccuracyGauge({ value = 0, size = 120, label = 'Accuracy' }) {
           cy={center}
           r={radius}
           fill="transparent"
-          stroke="rgba(255, 255, 255, 0.08)"
+          stroke="#e2e8f0"
           strokeWidth={strokeWidth}
         />
         <circle

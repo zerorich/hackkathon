@@ -117,7 +117,7 @@ export function TopicDetailPage({ topicId, onNavigate }) {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h1 className="page-title">
-              <BookOpen className="w-6 h-6 text-indigo-400" />
+              <BookOpen className="w-6 h-6 text-blue-600" />
               Topic Deep Dive Analysis
             </h1>
             {isWeak ? (
@@ -275,7 +275,7 @@ export function TopicDetailPage({ topicId, onNavigate }) {
                   {students_needing_attention.map((st, idx) => (
                     <tr key={idx}>
                       <td>
-                        <div style={{ fontWeight: '600', color: '#fb7185' }}>
+                        <div style={{ fontWeight: '600', color: 'var(--danger)' }}>
                           {st.user?.display_name || st.user?.identifier || 'Student'}
                         </div>
                       </td>

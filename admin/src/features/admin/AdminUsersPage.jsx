@@ -101,7 +101,7 @@ export function AdminUsersPage() {
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>
               Students
             </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#818cf8', marginTop: '4px' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)', marginTop: '4px' }}>
               {overview.total_students || 0}
             </div>
           </Card>
@@ -110,7 +110,7 @@ export function AdminUsersPage() {
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>
               Teachers
             </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#06b6d4', marginTop: '4px' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--accent-cyan)', marginTop: '4px' }}>
               {overview.total_teachers || 0}
             </div>
           </Card>
@@ -119,7 +119,7 @@ export function AdminUsersPage() {
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>
               Active Classes
             </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#10b981', marginTop: '4px' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--success)', marginTop: '4px' }}>
               {overview.total_classes || 0}
             </div>
           </Card>
@@ -128,7 +128,7 @@ export function AdminUsersPage() {
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>
               AI Generations
             </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#c084fc', marginTop: '4px' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--purple)', marginTop: '4px' }}>
               {overview.ai_generations || 0}
             </div>
           </Card>
@@ -208,13 +208,13 @@ export function AdminUsersPage() {
                               ? 'rgba(168, 85, 247, 0.2)'
                               : u.role === 'TEACHER'
                               ? 'rgba(6, 182, 212, 0.2)'
-                              : 'rgba(99, 102, 241, 0.2)',
+                              : 'var(--primary-light)',
                           color:
                             u.role === 'ADMIN'
-                              ? '#c084fc'
+                              ? 'var(--purple)'
                               : u.role === 'TEACHER'
-                              ? '#22d3ee'
-                              : '#818cf8',
+                              ? 'var(--accent-cyan)'
+                              : 'var(--primary)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -256,7 +256,7 @@ export function AdminUsersPage() {
                   </TableCell>
 
                   <TableCell>
-                    <span style={{ fontSize: '0.82rem', color: u.onboarding_completed ? '#34d399' : 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '0.82rem', color: u.onboarding_completed ? 'var(--success)' : 'var(--text-muted)' }}>
                       {u.onboarding_completed ? 'Completed' : 'Pending'}
                     </span>
                   </TableCell>

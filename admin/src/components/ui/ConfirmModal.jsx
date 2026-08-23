@@ -29,16 +29,13 @@ export function ConfirmModal({
             variant={variant}
             onClick={onConfirm}
             loading={isLoading}
-            style={{
-              backgroundColor: variant === 'danger' ? '#f43f5e' : undefined,
-            }}
           >
             {confirmText}
           </Button>
         </>
       }
     >
-      <p style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: '0.9rem', lineHeight: '1.5' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.5' }}>
         {description}
       </p>
     </Modal>

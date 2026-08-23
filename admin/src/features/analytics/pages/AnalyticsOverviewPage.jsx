@@ -106,7 +106,7 @@ export function AnalyticsOverviewPage({ onNavigate }) {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            <BarChart3 className="w-6 h-6 text-indigo-400" />
+            <BarChart3 className="w-6 h-6 text-blue-600" />
             Class Performance Reports
           </h1>
           <p className="page-subtitle">
@@ -128,7 +128,7 @@ export function AnalyticsOverviewPage({ onNavigate }) {
             flexWrap: 'wrap',
           }}
         >
-          <Calendar className="w-4 h-4 text-slate-400" style={{ marginLeft: '6px' }} />
+          <Calendar className="w-4 h-4 text-gray-400" style={{ marginLeft: '6px' }} />
           {[
             { id: 'all', label: 'All Time' },
             { id: 'today', label: 'Today' },
@@ -260,7 +260,7 @@ export function AnalyticsOverviewPage({ onNavigate }) {
                               <Badge variant={accBadge.variant}>{accBadge.label}</Badge>
                             </td>
                             <td>
-                              <span style={{ fontSize: '0.78rem', color: '#34d399', fontWeight: '600' }}>
+                              <span style={{ fontSize: '0.78rem', color: 'var(--success)', fontWeight: '600' }}>
                                 ✓ Strong Understanding
                               </span>
                             </td>
@@ -282,7 +282,7 @@ export function AnalyticsOverviewPage({ onNavigate }) {
             >
               {weak_topics.length === 0 ? (
                 <div style={{ padding: '30px 0', textAlign: 'center' }}>
-                  <CheckCircle2 className="w-10 h-10 text-emerald-400" style={{ margin: '0 auto 8px' }} />
+                  <CheckCircle2 className="w-10 h-10 text-green-600" style={{ margin: '0 auto 8px' }} />
                   <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
                     No Weak Topics in this Period!
                   </div>
@@ -308,7 +308,7 @@ export function AnalyticsOverviewPage({ onNavigate }) {
                           onClick={() => onNavigate(`analytics-topic-${t.topic_id}`)}
                         >
                           <td>
-                            <div style={{ fontWeight: '600', color: '#fb7185' }}>
+                            <div style={{ fontWeight: '600', color: 'var(--danger)' }}>
                               ⚠️ {t.title}
                             </div>
                           </td>

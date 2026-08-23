@@ -60,7 +60,7 @@ export function TopicsAnalyticsPage({ onNavigate }) {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            <BookOpen className="w-6 h-6 text-indigo-400" />
+            <BookOpen className="w-6 h-6 text-blue-600" />
             Topic Analytics & Mastery
           </h1>
           <p className="page-subtitle">
@@ -73,7 +73,7 @@ export function TopicsAnalyticsPage({ onNavigate }) {
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <Search
-              className="w-4 h-4 text-slate-400"
+              className="w-4 h-4 text-gray-400"
               style={{ position: 'absolute', left: '12px', top: '11px' }}
             />
             <input
@@ -160,9 +160,9 @@ export function TopicsAnalyticsPage({ onNavigate }) {
                               height: '32px',
                               borderRadius: '8px',
                               backgroundColor: row.is_weak
-                                ? 'rgba(244, 63, 94, 0.15)'
-                                : 'rgba(99, 102, 241, 0.15)',
-                              color: row.is_weak ? '#fb7185' : '#818cf8',
+                                ? 'var(--danger-light)'
+                                : 'var(--primary-light)',
+                              color: row.is_weak ? 'var(--danger)' : 'var(--primary)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -205,7 +205,7 @@ export function TopicsAnalyticsPage({ onNavigate }) {
                               style={{
                                 width: `${Math.min(100, Math.max(0, mastery))}%`,
                                 backgroundColor:
-                                  mastery >= 75 ? '#10b981' : mastery >= 50 ? '#f59e0b' : '#f43f5e',
+                                  mastery >= 75 ? 'var(--success)' : mastery >= 50 ? 'var(--warning)' : 'var(--danger)',
                               }}
                             />
                           </div>

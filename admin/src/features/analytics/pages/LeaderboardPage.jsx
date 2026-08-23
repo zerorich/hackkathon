@@ -169,7 +169,7 @@ export function LeaderboardPage({ onNavigate }) {
                 <div style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-primary)', marginTop: '8px' }}>
                   {top3[1]?.user?.display_name || 'Student'}
                 </div>
-                <div style={{ color: '#c084fc', fontWeight: '800', fontSize: '1.2rem', marginTop: '4px' }}>
+                <div style={{ color: 'var(--purple)', fontWeight: '800', fontSize: '1.2rem', marginTop: '4px' }}>
                   {formatNumber(top3[1]?.total_xp)} XP
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -192,7 +192,7 @@ export function LeaderboardPage({ onNavigate }) {
                 onClick={() => onNavigate(`analytics-student-${top3[0]?.user?.id}`)}
               >
                 <div style={{ position: 'absolute', top: '-16px', left: '50%', transform: 'translateX(-50%)' }}>
-                  <Badge variant="warning" style={{ backgroundColor: '#f59e0b', color: '#000', fontWeight: '800' }}>
+                  <Badge variant="warning" style={{ backgroundColor: 'var(--warning)', color: '#000', fontWeight: '800' }}>
                     👑 #1 Champion
                   </Badge>
                 </div>
@@ -200,7 +200,7 @@ export function LeaderboardPage({ onNavigate }) {
                 <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#fff' }}>
                   {top3[0]?.user?.display_name || 'Student'}
                 </div>
-                <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem', marginTop: '4px' }}>
+                <div style={{ color: 'var(--warning)', fontWeight: '900', fontSize: '1.4rem', marginTop: '4px' }}>
                   {formatNumber(top3[0]?.total_xp)} XP
                 </div>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -230,7 +230,7 @@ export function LeaderboardPage({ onNavigate }) {
                 <div style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-primary)', marginTop: '8px' }}>
                   {top3[2]?.user?.display_name || 'Student'}
                 </div>
-                <div style={{ color: '#c084fc', fontWeight: '800', fontSize: '1.2rem', marginTop: '4px' }}>
+                <div style={{ color: 'var(--purple)', fontWeight: '800', fontSize: '1.2rem', marginTop: '4px' }}>
                   {formatNumber(top3[2]?.total_xp)} XP
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -291,8 +291,8 @@ export function LeaderboardPage({ onNavigate }) {
                                 width: '32px',
                                 height: '32px',
                                 borderRadius: '50%',
-                                backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                                color: '#818cf8',
+                                backgroundColor: 'var(--primary-light)',
+                                color: 'var(--primary)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -328,13 +328,13 @@ export function LeaderboardPage({ onNavigate }) {
                         </td>
 
                         <td>
-                          <span style={{ color: '#22d3ee', fontWeight: '600' }}>
+                          <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
                             ⚔️ {row.duel_wins || 0}
                           </span>
                         </td>
 
                         <td>
-                          <span style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: '600' }}>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--warning)', fontWeight: '600' }}>
                             🔥 {row.streak || 0}d
                           </span>
                         </td>

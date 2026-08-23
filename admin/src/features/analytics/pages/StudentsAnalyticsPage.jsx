@@ -68,7 +68,7 @@ export function StudentsAnalyticsPage({ onNavigate }) {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            <Users className="w-6 h-6 text-indigo-400" />
+            <Users className="w-6 h-6 text-blue-600" />
             Students Roster & Performance
           </h1>
           <p className="page-subtitle">
@@ -81,7 +81,7 @@ export function StudentsAnalyticsPage({ onNavigate }) {
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
             <Search
-              className="w-4 h-4 text-slate-400"
+              className="w-4 h-4 text-gray-400"
               style={{ position: 'absolute', left: '12px', top: '11px' }}
             />
             <input
@@ -165,9 +165,9 @@ export function StudentsAnalyticsPage({ onNavigate }) {
                               width: '34px',
                               height: '34px',
                               borderRadius: '50%',
-                              backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                              border: '1px solid rgba(99, 102, 241, 0.4)',
-                              color: '#818cf8',
+                              backgroundColor: 'var(--primary-light)',
+                              border: '1px solid rgba(37, 99, 235, 0.2)',
+                              color: 'var(--primary)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -194,13 +194,13 @@ export function StudentsAnalyticsPage({ onNavigate }) {
                       </td>
 
                       <td>
-                        <span style={{ fontWeight: '700', color: '#c084fc' }}>
+                        <span style={{ fontWeight: '700', color: 'var(--purple)' }}>
                           {formatNumber(st.total_xp)} XP
                         </span>
                       </td>
 
                       <td>
-                        <span style={{ fontSize: '0.85rem', color: '#f59e0b', fontWeight: '600' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--warning)', fontWeight: '600' }}>
                           🔥 {st.streak || 0}d
                         </span>
                       </td>
@@ -214,7 +214,7 @@ export function StudentsAnalyticsPage({ onNavigate }) {
                       </td>
 
                       <td>
-                        <span style={{ color: '#22d3ee', fontWeight: '600' }}>
+                        <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
                           ⚔️ {st.duel_wins || 0}
                         </span>
                       </td>

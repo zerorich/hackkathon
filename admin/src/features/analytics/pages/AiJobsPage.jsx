@@ -97,7 +97,7 @@ export function AiJobsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            <Cpu className="w-6 h-6 text-indigo-400" />
+            <Cpu className="w-6 h-6 text-blue-600" />
             AI Orchestration & Platform Monitoring
           </h1>
           <p className="page-subtitle">
@@ -231,7 +231,7 @@ export function AiJobsPage() {
 
                       <td>
                         {j.error_message ? (
-                          <span style={{ color: '#fb7185', fontSize: '0.78rem' }}>
+                          <span style={{ color: 'var(--danger)', fontSize: '0.78rem' }}>
                             {j.error_message}
                           </span>
                         ) : (

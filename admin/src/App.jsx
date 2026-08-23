@@ -20,7 +20,7 @@ function RootApp() {
           gap: '16px',
         }}
       >
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <Loader2 style={{ width: '32px', height: '32px', color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
         <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
           Connecting to Maktab AI Arena...
         </span>

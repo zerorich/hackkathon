@@ -8,22 +8,22 @@ export const FormField = ({ label, error, required, children, hint, style = {} }
           style={{
             fontSize: '0.82rem',
             fontWeight: '600',
-            color: 'var(--text-primary, #f8fafc)',
+            color: 'var(--text-primary, #1e293b)',
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
           }}
         >
           {label}
-          {required && <span style={{ color: '#f43f5e' }}>*</span>}
+          {required && <span style={{ color: 'var(--danger)' }}>*</span>}
         </label>
       )}
       {children}
       {hint && !error && (
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)' }}>{hint}</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)' }}>{hint}</span>
       )}
       {error && (
-        <span style={{ fontSize: '0.78rem', color: '#fb7185', fontWeight: '500' }}>{error}</span>
+        <span style={{ fontSize: '0.78rem', color: 'var(--danger)', fontWeight: '500' }}>{error}</span>
       )}
     </div>
   )
@@ -40,13 +40,13 @@ export const Input = forwardRef(
               left: '14px',
               top: '50%',
               transform: 'translateY(-50%)',
-              color: 'var(--text-muted, #64748b)',
+              color: 'var(--text-muted, #94a3b8)',
               display: 'flex',
               alignItems: 'center',
               pointerEvents: 'none',
             }}
           >
-            <Icon className="w-4 h-4" />
+            <Icon style={{ width: '16px', height: '16px' }} />
           </div>
         )}
         <input
@@ -54,24 +54,25 @@ export const Input = forwardRef(
           className={`app-input ${className}`}
           style={{
             width: '100%',
-            backgroundColor: 'var(--bg-input, #151d2f)',
-            border: error ? '1.5px solid #f43f5e' : '1px solid var(--border-card, rgba(255, 255, 255, 0.12))',
+            backgroundColor: '#ffffff',
+            border: error ? '1.5px solid var(--danger)' : '1px solid var(--border-card, #e2e8f0)',
             borderRadius: 'var(--radius-md, 10px)',
             padding: Icon ? '10px 14px 10px 40px' : '10px 14px',
-            color: 'var(--text-primary, #f8fafc)',
+            color: 'var(--text-primary, #1e293b)',
             fontSize: '0.88rem',
             outline: 'none',
             transition: 'all 0.15s ease',
+            fontFamily: 'inherit',
             ...style,
           }}
           onFocus={(e) => {
-            if (!error) e.target.style.borderColor = 'var(--primary, #6366f1)'
+            if (!error) e.target.style.borderColor = 'var(--primary, #2563eb)'
             e.target.style.boxShadow = error
-              ? '0 0 0 3px rgba(244, 63, 94, 0.2)'
-              : '0 0 0 3px rgba(99, 102, 241, 0.25)'
+              ? '0 0 0 3px rgba(220, 38, 38, 0.12)'
+              : '0 0 0 3px rgba(37, 99, 235, 0.12)'
           }}
           onBlur={(e) => {
-            if (!error) e.target.style.borderColor = 'var(--border-card, rgba(255, 255, 255, 0.12))'
+            if (!error) e.target.style.borderColor = 'var(--border-card, #e2e8f0)'
             e.target.style.boxShadow = 'none'
           }}
           {...props}
@@ -101,11 +102,11 @@ export const Textarea = forwardRef(
         className={`app-input ${className}`}
         style={{
           width: '100%',
-          backgroundColor: 'var(--bg-input, #151d2f)',
-          border: error ? '1.5px solid #f43f5e' : '1px solid var(--border-card, rgba(255, 255, 255, 0.12))',
+          backgroundColor: '#ffffff',
+          border: error ? '1.5px solid var(--danger)' : '1px solid var(--border-card, #e2e8f0)',
           borderRadius: 'var(--radius-md, 10px)',
           padding: '10px 14px',
-          color: 'var(--text-primary, #f8fafc)',
+          color: 'var(--text-primary, #1e293b)',
           fontSize: '0.88rem',
           fontFamily: 'inherit',
           outline: 'none',
@@ -114,13 +115,13 @@ export const Textarea = forwardRef(
           ...style,
         }}
         onFocus={(e) => {
-          if (!error) e.target.style.borderColor = 'var(--primary, #6366f1)'
+          if (!error) e.target.style.borderColor = 'var(--primary, #2563eb)'
           e.target.style.boxShadow = error
-            ? '0 0 0 3px rgba(244, 63, 94, 0.2)'
-            : '0 0 0 3px rgba(99, 102, 241, 0.25)'
+            ? '0 0 0 3px rgba(220, 38, 38, 0.12)'
+            : '0 0 0 3px rgba(37, 99, 235, 0.12)'
         }}
         onBlur={(e) => {
-          if (!error) e.target.style.borderColor = 'var(--border-card, rgba(255, 255, 255, 0.12))'
+          if (!error) e.target.style.borderColor = 'var(--border-card, #e2e8f0)'
           e.target.style.boxShadow = 'none'
         }}
         {...props}
@@ -148,25 +149,26 @@ export const Select = forwardRef(
         className={`app-input ${className}`}
         style={{
           width: '100%',
-          backgroundColor: 'var(--bg-input, #151d2f)',
-          border: error ? '1.5px solid #f43f5e' : '1px solid var(--border-card, rgba(255, 255, 255, 0.12))',
+          backgroundColor: '#ffffff',
+          border: error ? '1.5px solid var(--danger)' : '1px solid var(--border-card, #e2e8f0)',
           borderRadius: 'var(--radius-md, 10px)',
           padding: '10px 14px',
-          color: 'var(--text-primary, #f8fafc)',
+          color: 'var(--text-primary, #1e293b)',
           fontSize: '0.88rem',
           outline: 'none',
           cursor: 'pointer',
           transition: 'all 0.15s ease',
+          fontFamily: 'inherit',
           ...style,
         }}
         onFocus={(e) => {
-          if (!error) e.target.style.borderColor = 'var(--primary, #6366f1)'
+          if (!error) e.target.style.borderColor = 'var(--primary, #2563eb)'
           e.target.style.boxShadow = error
-            ? '0 0 0 3px rgba(244, 63, 94, 0.2)'
-            : '0 0 0 3px rgba(99, 102, 241, 0.25)'
+            ? '0 0 0 3px rgba(220, 38, 38, 0.12)'
+            : '0 0 0 3px rgba(37, 99, 235, 0.12)'
         }}
         onBlur={(e) => {
-          if (!error) e.target.style.borderColor = 'var(--border-card, rgba(255, 255, 255, 0.12))'
+          if (!error) e.target.style.borderColor = 'var(--border-card, #e2e8f0)'
           e.target.style.boxShadow = 'none'
         }}
         {...props}
@@ -174,7 +176,7 @@ export const Select = forwardRef(
         {children
           ? children
           : options.map((opt) => (
-              <option key={opt.value} value={opt.value} style={{ backgroundColor: '#131b2e', color: '#fff' }}>
+              <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}

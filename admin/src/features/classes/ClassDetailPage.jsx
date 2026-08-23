@@ -404,11 +404,11 @@ export function ClassDetailPage({ classId, onNavigate }) {
       {error && (
         <div
           style={{
-            backgroundColor: 'rgba(244, 63, 94, 0.15)',
-            border: '1px solid rgba(244, 63, 94, 0.3)',
+            backgroundColor: 'var(--danger-light)',
+            border: '1px solid var(--danger-border)',
             borderRadius: '10px',
             padding: '12px 16px',
-            color: '#fb7185',
+            color: 'var(--danger)',
             fontSize: '0.86rem',
             marginBottom: '20px',
             display: 'flex',
@@ -463,12 +463,12 @@ export function ClassDetailPage({ classId, onNavigate }) {
                 width: '54px',
                 height: '54px',
                 borderRadius: '16px',
-                background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+                background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent-cyan) 100%)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
+                boxShadow: '0 0 20px rgba(37, 99, 235, 0.2)',
                 flexShrink: 0,
               }}
             >
@@ -515,7 +515,7 @@ export function ClassDetailPage({ classId, onNavigate }) {
                   size="sm"
                   icon={copiedCode ? Check : Copy}
                   onClick={handleCopyInvite}
-                  style={{ color: copiedCode ? '#34d399' : undefined }}
+                  style={{ color: copiedCode ? 'var(--success)' : undefined }}
                 >
                   {copiedCode ? 'Copied' : 'Copy'}
                 </Button>
@@ -561,16 +561,16 @@ export function ClassDetailPage({ classId, onNavigate }) {
                 padding: '12px 18px',
                 border: 'none',
                 background: 'transparent',
-                color: isActive ? '#818cf8' : 'var(--text-secondary)',
+                color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
                 fontWeight: isActive ? '700' : '500',
                 fontSize: '0.9rem',
                 cursor: 'pointer',
-                borderBottom: isActive ? '2px solid #6366f1' : '2px solid transparent',
+                borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
                 marginBottom: '-1px',
                 transition: 'all 0.15s ease',
               }}
             >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+              <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
               {tab.label}
             </button>
           )
@@ -618,8 +618,8 @@ export function ClassDetailPage({ classId, onNavigate }) {
                               width: '34px',
                               height: '34px',
                               borderRadius: '50%',
-                              backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                              color: '#818cf8',
+                              backgroundColor: 'var(--primary-light)',
+                              color: 'var(--primary)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -647,14 +647,14 @@ export function ClassDetailPage({ classId, onNavigate }) {
                       </TableCell>
 
                       <TableCell>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', color: '#f59e0b' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', color: 'var(--warning)' }}>
                           <Award className="w-4 h-4 text-amber-400" />
                           {(stats.total_xp || 0).toLocaleString()} XP
                         </div>
                       </TableCell>
 
                       <TableCell>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fb7185', fontWeight: '600' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--danger)', fontWeight: '600' }}>
                           <Flame className="w-4 h-4" />
                           {stats.streak || 0} days
                         </div>
@@ -710,11 +710,11 @@ export function ClassDetailPage({ classId, onNavigate }) {
           {archiveErrorNotice && (
             <div
               style={{
-                backgroundColor: 'rgba(244, 63, 94, 0.15)',
-                border: '1px solid rgba(244, 63, 94, 0.3)',
+                backgroundColor: 'var(--danger-light)',
+                border: '1px solid var(--danger-border)',
                 borderRadius: '8px',
                 padding: '12px 16px',
-                color: '#fb7185',
+                color: 'var(--danger)',
                 fontSize: '0.85rem',
                 marginBottom: '16px',
                 display: 'flex',
@@ -761,8 +761,8 @@ export function ClassDetailPage({ classId, onNavigate }) {
                             width: '40px',
                             height: '40px',
                             borderRadius: '10px',
-                            backgroundColor: 'rgba(6, 182, 212, 0.15)',
-                            color: '#06b6d4',
+                            backgroundColor: 'var(--accent-cyan-light)',
+                            color: 'var(--accent-cyan)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -796,7 +796,7 @@ export function ClassDetailPage({ classId, onNavigate }) {
                             setArchiveErrorNotice(null)
                             setSubjectToArchive(subj)
                           }}
-                          style={{ color: '#fb7185' }}
+                          style={{ color: 'var(--danger)' }}
                           title="Archive Subject"
                         />
                       </div>
@@ -1010,11 +1010,11 @@ export function ClassDetailPage({ classId, onNavigate }) {
           {subjectError && (
             <div
               style={{
-                backgroundColor: 'rgba(244, 63, 94, 0.15)',
-                border: '1px solid rgba(244, 63, 94, 0.3)',
+                backgroundColor: 'var(--danger-light)',
+                border: '1px solid var(--danger-border)',
                 borderRadius: '8px',
                 padding: '10px 14px',
-                color: '#fb7185',
+                color: 'var(--danger)',
                 fontSize: '0.84rem',
                 marginBottom: '16px',
               }}
@@ -1083,8 +1083,8 @@ export function ClassDetailPage({ classId, onNavigate }) {
                 width: '60px',
                 height: '60px',
                 borderRadius: '50%',
-                backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                color: '#818cf8',
+                backgroundColor: 'var(--primary-light)',
+                color: 'var(--primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1106,11 +1106,11 @@ export function ClassDetailPage({ classId, onNavigate }) {
             {genError && (
               <div
                 style={{
-                  backgroundColor: 'rgba(244, 63, 94, 0.15)',
-                  border: '1px solid rgba(244, 63, 94, 0.3)',
+                  backgroundColor: 'var(--danger-light)',
+                  border: '1px solid var(--danger-border)',
                   borderRadius: '8px',
                   padding: '10px 14px',
-                  color: '#fb7185',
+                  color: 'var(--danger)',
                   fontSize: '0.84rem',
                   marginBottom: '16px',
                 }}
@@ -1184,11 +1184,11 @@ export function ClassDetailPage({ classId, onNavigate }) {
           {manualError && (
             <div
               style={{
-                backgroundColor: 'rgba(244, 63, 94, 0.15)',
-                border: '1px solid rgba(244, 63, 94, 0.3)',
+                backgroundColor: 'var(--danger-light)',
+                border: '1px solid var(--danger-border)',
                 borderRadius: '8px',
                 padding: '10px 14px',
-                color: '#fb7185',
+                color: 'var(--danger)',
                 fontSize: '0.84rem',
                 marginBottom: '16px',
               }}
@@ -1249,7 +1249,7 @@ export function ClassDetailPage({ classId, onNavigate }) {
                   marginBottom: '12px',
                 }}
               >
-                <div style={{ fontWeight: '700', fontSize: '0.84rem', color: '#818cf8', marginBottom: '8px' }}>
+                <div style={{ fontWeight: '700', fontSize: '0.84rem', color: 'var(--primary)', marginBottom: '8px' }}>
                   Question {qIdx + 1}
                 </div>
 
@@ -1276,7 +1276,7 @@ export function ClassDetailPage({ classId, onNavigate }) {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        backgroundColor: opt.is_correct ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                        backgroundColor: opt.is_correct ? 'var(--success-light)' : '#f8f9fb',
                         border: opt.is_correct ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-subtle)',
                         borderRadius: '8px',
                         padding: '6px 10px',
@@ -1368,7 +1368,7 @@ export function ClassDetailPage({ classId, onNavigate }) {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontWeight: '700', color: '#818cf8', fontSize: '0.85rem' }}>
+              <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '0.85rem' }}>
                 Question {idx + 1}
               </span>
               <Badge variant="neutral" style={{ fontSize: '0.7rem' }}>
@@ -1385,12 +1385,12 @@ export function ClassDetailPage({ classId, onNavigate }) {
                 <div
                   key={opt.id || oIdx}
                   style={{
-                    backgroundColor: opt.is_correct ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-                    border: opt.is_correct ? '1px solid #10b981' : '1px solid var(--border-subtle)',
+                    backgroundColor: opt.is_correct ? 'var(--success-light)' : 'rgba(255, 255, 255, 0.04)',
+                    border: opt.is_correct ? '1px solid var(--success)' : '1px solid var(--border-subtle)',
                     borderRadius: '8px',
                     padding: '8px 12px',
                     fontSize: '0.84rem',
-                    color: opt.is_correct ? '#34d399' : 'var(--text-secondary)',
+                    color: opt.is_correct ? 'var(--success)' : 'var(--text-secondary)',
                     fontWeight: opt.is_correct ? '700' : '400',
                     display: 'flex',
                     alignItems: 'center',
@@ -1398,7 +1398,7 @@ export function ClassDetailPage({ classId, onNavigate }) {
                   }}
                 >
                   <span>{opt.text}</span>
-                  {opt.is_correct && <Check className="w-4 h-4 text-emerald-400" />}
+                  {opt.is_correct && <Check className="w-4 h-4 text-green-600" />}
                 </div>
               ))}
             </div>
@@ -1416,7 +1416,7 @@ export function ClassDetailPage({ classId, onNavigate }) {
                   gap: '6px',
                 }}
               >
-                <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 text-indigo-400 mt-0.5" />
+                <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 text-blue-600 mt-0.5" />
                 <span>Explanation: {q.explanation}</span>
               </div>
             )}

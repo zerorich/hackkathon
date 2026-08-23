@@ -7,11 +7,11 @@ import {
   Activity,
   Cpu,
   GraduationCap,
-  Sparkles,
   Layers,
   LogOut,
   FolderKanban,
   ShieldCheck,
+  Home,
 } from 'lucide-react'
 import { useAuth } from '../../stores/AuthContext'
 import { Badge } from '../../components/ui/Badge'
@@ -54,27 +54,27 @@ export function Sidebar({ currentRoute, onNavigate }) {
   return (
     <aside className="sidebar">
       {/* Brand Header */}
-      <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
+      <div style={{ padding: '20px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
-              width: '36px',
-              height: '36px',
+              width: '38px',
+              height: '38px',
               borderRadius: '10px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+              background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(99, 102, 241, 0.4)',
+              boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
             }}
           >
-            <Sparkles className="w-5 h-5 text-white" />
+            <Home className="w-5 h-5" style={{ color: '#fff' }} />
           </div>
           <div>
-            <div style={{ fontWeight: '800', fontSize: '1.05rem', letterSpacing: '-0.02em', color: '#fff' }}>
-              Maktab <span style={{ color: '#818cf8' }}>AI Arena</span>
+            <div style={{ fontWeight: '700', fontSize: '1.05rem', letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+              Maktab <span style={{ color: 'var(--primary)' }}>Admin</span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Teacher & Admin Console</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Panel</div>
           </div>
         </div>
       </div>
@@ -95,7 +95,7 @@ export function Sidebar({ currentRoute, onNavigate }) {
             >
               {section.title}
             </div>
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {section.items.map((item) => {
                 const Icon = item.icon
                 const isActive =
@@ -112,18 +112,19 @@ export function Sidebar({ currentRoute, onNavigate }) {
                       padding: '10px 12px',
                       borderRadius: '8px',
                       border: 'none',
-                      background: isActive ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                      color: isActive ? '#818cf8' : 'var(--text-secondary)',
+                      background: isActive ? 'var(--primary-light)' : 'transparent',
+                      color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
                       fontWeight: isActive ? '600' : '500',
                       fontSize: '0.85rem',
                       cursor: 'pointer',
                       textAlign: 'left',
                       transition: 'all 0.15s ease',
                       position: 'relative',
+                      fontFamily: 'inherit',
                     }}
                     onMouseEnter={(e) => {
                       if (!isActive) {
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+                        e.currentTarget.style.background = '#f1f5f9'
                         e.currentTarget.style.color = 'var(--text-primary)'
                       }
                     }}
@@ -134,9 +135,6 @@ export function Sidebar({ currentRoute, onNavigate }) {
                       }
                     }}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-400' : 'text-slate-400'}`} />
-                    <span style={{ flex: 1 }}>{item.label}</span>
-                    {item.badge && <Badge variant="purple" style={{ fontSize: '0.65rem' }}>{item.badge}</Badge>}
                     {isActive && (
                       <div
                         style={{
@@ -146,11 +144,13 @@ export function Sidebar({ currentRoute, onNavigate }) {
                           bottom: '6px',
                           width: '3px',
                           borderRadius: '0 4px 4px 0',
-                          backgroundColor: '#6366f1',
-                          boxShadow: '0 0 8px #6366f1',
+                          backgroundColor: 'var(--primary)',
                         }}
                       />
                     )}
+                    <Icon style={{ width: '18px', height: '18px', flexShrink: 0 }} />
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {item.badge && <Badge variant="purple" style={{ fontSize: '0.65rem' }}>{item.badge}</Badge>}
                   </button>
                 )
               })}
@@ -164,7 +164,7 @@ export function Sidebar({ currentRoute, onNavigate }) {
         style={{
           padding: '14px 16px',
           borderTop: '1px solid var(--border-subtle)',
-          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+          backgroundColor: '#f8f9fb',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -176,9 +176,9 @@ export function Sidebar({ currentRoute, onNavigate }) {
               width: '34px',
               height: '34px',
               borderRadius: '50%',
-              backgroundColor: 'rgba(99, 102, 241, 0.2)',
-              border: '1px solid rgba(99, 102, 241, 0.4)',
-              color: '#818cf8',
+              backgroundColor: 'var(--primary-light)',
+              border: '1px solid rgba(37, 99, 235, 0.2)',
+              color: 'var(--primary)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -223,17 +223,18 @@ export function Sidebar({ currentRoute, onNavigate }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#fb7185'
-            e.currentTarget.style.background = 'rgba(244, 63, 94, 0.1)'
+            e.currentTarget.style.color = 'var(--danger)'
+            e.currentTarget.style.background = 'var(--danger-light)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.color = 'var(--text-muted)'
             e.currentTarget.style.background = 'transparent'
           }}
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut style={{ width: '18px', height: '18px' }} />
         </button>
       </div>
     </aside>

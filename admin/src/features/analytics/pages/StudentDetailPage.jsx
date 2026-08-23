@@ -134,14 +134,14 @@ export function StudentDetailPage({ userId, onNavigate }) {
               width: '56px',
               height: '56px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+              background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent-cyan) 100%)',
               color: '#fff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: '800',
               fontSize: '1.4rem',
-              boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
+              boxShadow: '0 0 20px rgba(37, 99, 235, 0.2)',
             }}
           >
             {profile.display_name ? profile.display_name.charAt(0).toUpperCase() : 'S'}
@@ -223,7 +223,7 @@ export function StudentDetailPage({ userId, onNavigate }) {
                     style={{
                       padding: '12px 14px',
                       borderRadius: '10px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                      backgroundColor: '#fafbfc',
                       border: '1px solid var(--border-subtle)',
                     }}
                   >
@@ -241,7 +241,7 @@ export function StudentDetailPage({ userId, onNavigate }) {
                           style={{
                             width: `${Math.min(100, Math.max(0, pct))}%`,
                             backgroundColor:
-                              pct >= 75 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#f43f5e',
+                              pct >= 75 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)',
                           }}
                         />
                       </div>
@@ -265,16 +265,16 @@ export function StudentDetailPage({ userId, onNavigate }) {
           {/* Duel Record Card */}
           <Card title="PvP Duel Record" subtitle="Direct student vs student duels" icon={Swords}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', textAlign: 'center' }}>
-              <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#34d399' }}>{wins}</div>
+              <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: 'var(--success-light)', border: '1px solid var(--success-border)' }}>
+                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--success)' }}>{wins}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Wins</div>
               </div>
-              <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.25)' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#fb7185' }}>{losses}</div>
+              <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: 'var(--danger-light)', border: '1px solid var(--danger-border)' }}>
+                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--danger)' }}>{losses}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Losses</div>
               </div>
-              <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#fbbf24' }}>{draws}</div>
+              <div style={{ padding: '14px', borderRadius: '10px', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--warning-border)' }}>
+                <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--warning)' }}>{draws}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Draws</div>
               </div>
             </div>

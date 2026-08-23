@@ -11,12 +11,12 @@ export function Topbar({ onRefresh, isRefreshing = false }) {
       {/* Left: Class Selector */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
-          <GraduationCap className="w-5 h-5 text-indigo-400" />
+          <GraduationCap style={{ width: '20px', height: '20px', color: 'var(--primary)' }} />
           <span style={{ fontSize: '0.82rem', fontWeight: '600' }}>Active Class:</span>
         </div>
 
         {loadingClasses ? (
-          <div style={{ width: '180px', height: '36px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.06)' }} />
+          <div style={{ width: '180px', height: '36px', borderRadius: '8px' }} className="skeleton" />
         ) : classes.length > 0 ? (
           <select
             value={selectedClassId}
@@ -27,8 +27,8 @@ export function Topbar({ onRefresh, isRefreshing = false }) {
               minWidth: '220px',
               padding: '6px 12px',
               fontWeight: '600',
-              backgroundColor: 'rgba(19, 27, 46, 0.9)',
-              borderColor: 'rgba(99, 102, 241, 0.3)',
+              backgroundColor: '#fff',
+              borderColor: 'var(--border-card)',
             }}
           >
             {classes.map((cls) => (
@@ -52,10 +52,10 @@ export function Topbar({ onRefresh, isRefreshing = false }) {
             gap: '6px',
             padding: '4px 10px',
             borderRadius: '9999px',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
+            backgroundColor: 'var(--success-light)',
+            border: '1px solid var(--success-border)',
             fontSize: '0.75rem',
-            color: '#34d399',
+            color: 'var(--success)',
             fontWeight: '600',
           }}
         >
@@ -64,8 +64,7 @@ export function Topbar({ onRefresh, isRefreshing = false }) {
               width: '6px',
               height: '6px',
               borderRadius: '50%',
-              backgroundColor: '#10b981',
-              boxShadow: '0 0 8px #10b981',
+              backgroundColor: 'var(--success)',
               display: 'inline-block',
             }}
           />
@@ -80,7 +79,7 @@ export function Topbar({ onRefresh, isRefreshing = false }) {
             className="btn btn-secondary btn-sm"
             title="Refresh Data from Server"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw style={{ width: '14px', height: '14px', ...(isRefreshing ? { animation: 'spin 1s linear infinite' } : {}) }} />
             <span>Sync</span>
           </button>
         )}
@@ -92,7 +91,7 @@ export function Topbar({ onRefresh, isRefreshing = false }) {
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
+              background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
               color: '#fff',
               display: 'flex',
               alignItems: 'center',
