@@ -196,9 +196,91 @@ async def test_ai_chat_does_not_send_fallback_reply_back_to_provider(
     assert first.json()["data"]["fallback_used"] is True
     assert second.json()["data"]["fallback_used"] is False
     provider_contents = [message["content"] for message in captured[1]]
-    assert "Первый вопрос" in provider_contents
-    assert "Второй вопрос" in provider_contents
+    assert any("Первый вопрос" in content for content in provider_contents)
+    assert any("Второй вопрос" in content for content in provider_contents)
     assert not any("AI-провайдер недоступен" in content for content in provider_contents)
+
+
+@pytest.mark.asyncio
+async def test_ai_chat_retries_current_question_when_provider_rejects_history(
+    client: AsyncClient, monkeypatch
+):
+    captured: list[list[dict]] = []
+
+    async def complete(_self, messages, **_kwargs):
+        captured.append(messages)
+        if len(captured) == 2:
+            raise AIClientError(
+                AIClientErrorCode.CLIENT_ERROR,
+                "invalid legacy history",
+                status_code=400,
+            )
+        return ChatCompletionResponse.model_validate(
+            {
+                "model": "test-model",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Pifagor teoremasi: a² + b² = c².",
+                        }
+                    }
+                ],
+            }
+        )
+
+    async def close(_self):
+        return None
+
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.chat_completions", complete)
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.close", close)
+    headers = await auth_headers(client, "chat-history-retry@demo.local")
+    created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)
+    conversation_id = created.json()["data"]["id"]
+
+    first = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "Salom"},
+        headers=headers,
+    )
+    second = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "Pifagor teoremasini menga tushuntirib ber"},
+        headers=headers,
+    )
+
+    assert first.json()["data"]["fallback_used"] is False
+    assert second.json()["data"]["fallback_used"] is False
+    assert len(captured) == 3
+    assert captured[2][0]["role"] == "system"
+    assert captured[2][1:] == [
+        {"role": "user", "content": "Pifagor teoremasini menga tushuntirib ber"}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_ai_chat_uses_uzbek_fallback_for_uzbek_question(client: AsyncClient, monkeypatch):
+    async def unavailable(_self, _messages, **_kwargs):
+        raise AIClientError(AIClientErrorCode.NETWORK, "offline")
+
+    async def close(_self):
+        return None
+
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.chat_completions", unavailable)
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.close", close)
+    headers = await auth_headers(client, "chat-uzbek-fallback@demo.local")
+    created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)
+    conversation_id = created.json()["data"]["id"]
+    response = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "Salom, menga Pifagor teoremasini tushuntirib ber"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    data = response.json()["data"]
+    assert data["fallback_used"] is True
+    assert "vaqtinchalik muammo" in data["assistant_message"]["content"]
 
 
 @pytest.mark.asyncio

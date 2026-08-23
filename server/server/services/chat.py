@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import structlog
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +31,8 @@ REFUSAL = (
     "Я не могу помогать с опасными или незаконными действиями. "
     "Могу объяснить тему безопасно или помочь с учебной альтернативой."
 )
+
+logger = structlog.get_logger(__name__)
 
 
 class AiChatService:
@@ -186,11 +189,27 @@ class AiChatService:
                 ),
             )
             .order_by(AiChatMessage.created_at.desc(), AiChatMessage.id.desc())
-            .limit(self.settings.ai_chat_context_messages)
+            # Fetch extra rows because normalizing consecutive roles can reduce
+            # the final number of provider messages.
+            .limit(self.settings.ai_chat_context_messages * 2)
         )
         rows = list(result.scalars())
         rows.reverse()
-        return [{"role": row.role.lower(), "content": row.content} for row in rows]
+        normalized: list[dict[str, str]] = []
+        for row in rows:
+            role = row.role.lower()
+            content = row.content.strip()
+            if not content or (not normalized and role == "assistant"):
+                continue
+            if normalized and normalized[-1]["role"] == role:
+                normalized[-1]["content"] += f"\n\n{content}"
+            else:
+                normalized.append({"role": role, "content": content})
+
+        normalized = normalized[-self.settings.ai_chat_context_messages :]
+        if normalized and normalized[0]["role"] == "assistant":
+            normalized.pop(0)
+        return normalized
 
     async def _generate_reply(
         self, content: str, history: list[dict[str, str]]
@@ -205,11 +224,23 @@ class AiChatService:
 
         client = AgentRouterClient(self.settings)
         try:
-            response = await client.chat_completions(
-                [{"role": "system", "content": SYSTEM_PROMPT}, *history],
-                temperature=0.3,
-                max_tokens=self.settings.ai_chat_max_response_tokens,
-            )
+            try:
+                response = await self._request_provider(client, history)
+            except AIClientError as exc:
+                # Some OpenAI-compatible Claude routes reject an otherwise valid
+                # legacy conversation history with HTTP 400. Retry the current
+                # question without that history instead of showing a false outage.
+                if exc.status_code != 400 or len(history) <= 1:
+                    raise
+                logger.warning(
+                    "ai_chat_history_rejected",
+                    error_code=exc.code,
+                    status_code=exc.status_code,
+                    history_messages=len(history),
+                )
+                response = await self._request_provider(
+                    client, [{"role": "user", "content": content}]
+                )
             if not response.choices or not isinstance(response.choices[0].message.content, str):
                 raise AIClientError(
                     AIClientErrorCode.INVALID_RESPONSE,
@@ -226,6 +257,11 @@ class AiChatService:
                 False,
             )
         except (AIClientError, ValueError) as exc:
+            logger.warning(
+                "ai_chat_provider_fallback",
+                error_code=getattr(exc, "code", type(exc).__name__),
+                status_code=getattr(exc, "status_code", None),
+            )
             if not self.settings.ai_use_fallback_on_error:
                 raise AppError(
                     CHAT_PROVIDER_UNAVAILABLE, "AI provider unavailable", status_code=503
@@ -233,6 +269,13 @@ class AiChatService:
             return self._fallback(content), "fallback", None, None, None, True
         finally:
             await client.close()
+
+    async def _request_provider(self, client: AgentRouterClient, history: list[dict[str, str]]):
+        return await client.chat_completions(
+            [{"role": "system", "content": SYSTEM_PROMPT}, *history],
+            temperature=0.3,
+            max_tokens=self.settings.ai_chat_max_response_tokens,
+        )
 
     @staticmethod
     def _unsafe(content: str) -> bool:
@@ -242,10 +285,25 @@ class AiChatService:
 
     @staticmethod
     def _fallback(content: str) -> str:
+        lowered = content.casefold()
+        uzbek_markers = (
+            "salom",
+            "menga",
+            "manga",
+            "tushuntir",
+            "nima",
+            "qanday",
+            "uchun",
+            "iltimos",
+        )
+        if any(marker in lowered for marker in uzbek_markers):
+            return (
+                "Hozir AI xizmatiga ulanishda vaqtinchalik muammo yuz berdi. "
+                "Savolingiz saqlandi — bir necha soniyadan keyin qayta yuboring."
+            )
         return (
-            "Сейчас AI-провайдер недоступен, но я помогу начать. "
-            f"Разбейте вопрос «{content[:180]}» на известные данные, цель и первый шаг. "
-            "Напишите, на каком шаге возникла трудность."
+            "Сейчас не удалось связаться с AI-сервисом. "
+            "Вопрос сохранён — повторите отправку через несколько секунд."
         )
 
     @staticmethod
