@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useApiData(fetcher, deps = []) {
   const [state, setState] = useState({ data: null, loading: true, error: null });
@@ -9,18 +9,24 @@ export function useApiData(fetcher, deps = []) {
     fetcherRef.current = fetcher;
   });
 
-  function run() {
+  const run = useCallback(({ silent = false } = {}) => {
     const current = ++seq.current;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    if (!silent) setState((s) => ({ ...s, loading: true, error: null }));
     fetcherRef
       .current()
       .then((data) => {
         if (current === seq.current) setState({ data, loading: false, error: null });
       })
       .catch((error) => {
-        if (current === seq.current) setState({ data: null, loading: false, error });
+        if (current === seq.current) {
+          setState((previous) =>
+            silent && previous.data
+              ? { ...previous, loading: false }
+              : { data: null, loading: false, error }
+          );
+        }
       });
-  }
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount/deps-change

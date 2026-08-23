@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Swords } from "lucide-react";
+import { ChevronRight, Clock3, Swords } from "lucide-react";
 import { api } from "../../lib/api";
 import { useApiData } from "../../lib/useApiData";
 import { LoadingView, ErrorView, EmptyView } from "../../components/StateViews";
@@ -54,8 +54,20 @@ export default function DuelsPage() {
             {items.map((d) => (
               <Link key={d.id} to={`/duels/${d.id}`} className="topic-card">
                 <div className="topic-card-main">
-                  <strong>{duelStatusLabel(d.status)}</strong>
-                  <span className="topic-card-desc">Kod: {d.share_code}</span>
+                  <div className="duel-list-title">
+                    <strong>{d.challenge?.topic_title || d.challenge?.title || "Duel"}</strong>
+                    <span className={`badge duel-status-${d.status.toLowerCase()}`}>{duelStatusLabel(d.status)}</span>
+                  </div>
+                  <span className="topic-card-desc">
+                    {d.is_challenger ? "Siz" : d.challenger?.display_name || "Raqib"} vs {d.is_challenger ? d.opponent?.display_name || "Kutilmoqda…" : "Siz"}
+                  </span>
+                  {d.status === "COMPLETED" ? (
+                    <span className="duel-list-score">
+                      {d.creator_score ?? 0} : {d.opponent_score ?? 0}
+                    </span>
+                  ) : (
+                    <span className="topic-card-desc"><Clock3 size={13} /> {d.challenge?.question_count || 0} savol</span>
+                  )}
                 </div>
                 <span className="chevron">
                   <ChevronRight size={18} />

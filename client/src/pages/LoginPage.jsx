@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { KeyRound, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { friendlyError } from "../lib/errorMessages";
@@ -8,6 +8,11 @@ import { ApiError } from "../lib/api";
 export default function LoginPage() {
   const { requestOtp, loginWithPassword, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from;
+  const returnTo = from?.pathname?.startsWith("/")
+    ? `${from.pathname}${from.search || ""}${from.hash || ""}`
+    : "/dashboard";
 
   const [mode, setMode] = useState("login"); // login | register
   const [identifier, setIdentifier] = useState("");
@@ -43,7 +48,7 @@ export default function LoginPage() {
           403
         );
       }
-      navigate("/dashboard", { replace: true });
+      navigate(returnTo, { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === "PASSWORD_NOT_SET") {
         setPasswordNotSet(true);
@@ -63,7 +68,7 @@ export default function LoginPage() {
     try {
       const res = await requestOtp(finalIdentifier);
       navigate("/verify", {
-        state: { identifier: finalIdentifier, demoCode: res?.demo_code, password, role: "STUDENT", studentOnly: true },
+        state: { identifier: finalIdentifier, demoCode: res?.demo_code, password, role: "STUDENT", studentOnly: true, returnTo },
       });
     } catch (err) {
       setError(err);
@@ -79,7 +84,7 @@ export default function LoginPage() {
     try {
       const res = await requestOtp(normalizedIdentifier);
       navigate("/verify", {
-        state: { identifier: normalizedIdentifier, demoCode: res?.demo_code, studentOnly: true },
+        state: { identifier: normalizedIdentifier, demoCode: res?.demo_code, studentOnly: true, returnTo },
       });
     } catch (err) {
       setError(err);

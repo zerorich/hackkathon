@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bot, CheckCircle2, Copy, Flame, Share2, Swords, Target, Zap } from "lucide-react";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { useApiData } from "../lib/useApiData";
 import { LoadingView, ErrorView } from "../components/StateViews";
 import { friendlyError } from "../lib/errorMessages";
@@ -39,7 +39,13 @@ export default function ResultPage() {
       linkAttemptToDuel(attemptId, duel.duel_id);
       setDuelInfo(duel);
     } catch (err) {
-      setDuelError(err);
+      if (err instanceof ApiError && err.code === "DUEL_ALREADY_EXISTS" && err.details?.duel_id) {
+        linkAttemptToDuel(attemptId, err.details.duel_id);
+        if (err.details.share_path) setDuelInfo(err.details);
+        else navigate(`/duels/${err.details.duel_id}`);
+      } else {
+        setDuelError(err);
+      }
     } finally {
       setDuelLoading(false);
     }
@@ -53,7 +59,12 @@ export default function ResultPage() {
       linkAttemptToDuel(attemptId, res.duel_id);
       navigate(`/duels/${res.duel_id}`);
     } catch (err) {
-      setDuelError(err);
+      if (err instanceof ApiError && err.code === "DUEL_ALREADY_EXISTS" && err.details?.duel_id) {
+        linkAttemptToDuel(attemptId, err.details.duel_id);
+        navigate(`/duels/${err.details.duel_id}`);
+      } else {
+        setDuelError(err);
+      }
     } finally {
       setBotLoading(false);
     }

@@ -2326,6 +2326,35 @@ svg {
   font-weight: 800;
 }
 
+.duel-challenge-summary,
+.duel-share-panel,
+.duel-bonus {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.duel-challenge-summary,
+.duel-share-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.duel-bonus {
+  text-align: center;
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+.duel-share-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .duel-vs {
   display: flex;
   align-items: center;
@@ -2392,6 +2421,29 @@ svg {
 
 .duel-record strong {
   font-size: 20px;
+}
+
+.duel-list-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.duel-list-title .badge {
+  flex: none;
+}
+
+.duel-list-score {
+  color: var(--accent-strong);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.topic-card-desc:has(svg) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ================= Profile ================= */

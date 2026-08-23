@@ -34,6 +34,7 @@ from server.models.entities import (
     Subject,
     Topic,
     TopicProgress,
+    User,
 )
 from server.services.calculations import level_progress
 from server.services.domain import AuthService, LeaderboardService
@@ -412,27 +413,91 @@ async def list_my_duels(
     result = await db.execute(query)
     duels = list(result.scalars().all())
     page = _paginated(duels, limit=limit)
+    page_items = page["items"]
+    challenge_ids = {d.challenge_id for d in page_items}
+    user_ids = {user_id for d in page_items for user_id in (d.creator_id, d.opponent_id) if user_id}
+    attempt_ids = {
+        attempt_id
+        for d in page_items
+        for attempt_id in (d.creator_attempt_id, d.opponent_attempt_id)
+        if attempt_id
+    }
+    challenges = (
+        {
+            row.id: row
+            for row in (
+                await db.execute(
+                    select(Challenge)
+                    .where(Challenge.id.in_(challenge_ids))
+                    .options(selectinload(Challenge.topic).selectinload(Topic.subject))
+                )
+            ).scalars()
+        }
+        if challenge_ids
+        else {}
+    )
+    users = (
+        {
+            row.id: row
+            for row in (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars()
+        }
+        if user_ids
+        else {}
+    )
+    attempts = (
+        {
+            row.id: row
+            for row in (
+                await db.execute(select(Attempt).where(Attempt.id.in_(attempt_ids)))
+            ).scalars()
+        }
+        if attempt_ids
+        else {}
+    )
+
+    def duel_list_item(d: Duel) -> dict:
+        challenge = challenges.get(d.challenge_id)
+        topic = challenge.topic if challenge else None
+        subject = topic.subject if topic else None
+        creator_attempt = attempts.get(d.creator_attempt_id)
+        opponent_attempt = attempts.get(d.opponent_attempt_id) if d.opponent_attempt_id else None
+        return {
+            "id": d.id,
+            "share_code": d.share_code,
+            "status": duel_status_to_api(d.status),
+            "challenge_id": d.challenge_id,
+            "challenge": {
+                "title": challenge.title,
+                "difficulty": challenge.difficulty,
+                "question_count": challenge.question_count,
+                "topic_title": topic.title if topic else "",
+                "subject_name": subject.name if subject else "",
+            }
+            if challenge
+            else None,
+            "creator_id": d.creator_id,
+            "opponent_id": d.opponent_id,
+            "challenger": AuthService.public_user_dict(users.get(d.creator_id))
+            if users.get(d.creator_id)
+            else None,
+            "opponent": AuthService.public_user_dict(users.get(d.opponent_id))
+            if d.opponent_id and users.get(d.opponent_id)
+            else None,
+            "creator_attempt_id": d.creator_attempt_id,
+            "opponent_attempt_id": d.opponent_attempt_id,
+            "creator_score": creator_attempt.score if creator_attempt else None,
+            "opponent_score": opponent_attempt.score if opponent_attempt else None,
+            "winner_id": d.winner_id,
+            "result_type": duel_result_type(d),
+            "is_challenger": d.creator_id == user.id,
+            "expires_at": d.expires_at,
+            "accepted_at": d.accepted_at,
+            "completed_at": d.completed_at,
+        }
+
     return success_response(
         {
-            "items": [
-                {
-                    "id": d.id,
-                    "share_code": d.share_code,
-                    "status": duel_status_to_api(d.status),
-                    "challenge_id": d.challenge_id,
-                    "creator_id": d.creator_id,
-                    "opponent_id": d.opponent_id,
-                    "creator_attempt_id": d.creator_attempt_id,
-                    "opponent_attempt_id": d.opponent_attempt_id,
-                    "winner_id": d.winner_id,
-                    "result_type": duel_result_type(d),
-                    "is_challenger": d.creator_id == user.id,
-                    "expires_at": d.expires_at,
-                    "accepted_at": d.accepted_at,
-                    "completed_at": d.completed_at,
-                }
-                for d in page["items"]
-            ],
+            "items": [duel_list_item(d) for d in page_items],
             "next_cursor": page["next_cursor"],
         }
     )

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
@@ -9,6 +9,7 @@ import { AVATAR_PRESETS, avatarImageUrl } from "../lib/avatars";
 export default function OnboardingPage() {
   const { user, updateProfile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isTeacher = user?.role === "TEACHER";
   const [displayName, setDisplayName] = useState(user?.display_name || "");
   const [avatar, setAvatar] = useState(user?.avatar_url || AVATAR_PRESETS[0]);
@@ -37,7 +38,8 @@ export default function OnboardingPage() {
         avatar_url: avatar,
         onboarding_completed: true,
       });
-      navigate(isTeacher ? "/teacher/classes" : "/dashboard", { replace: true });
+      const returnTo = location.state?.returnTo;
+      navigate(isTeacher ? "/teacher/classes" : returnTo?.startsWith("/") ? returnTo : "/dashboard", { replace: true });
     } catch (err) {
       setError(err);
     } finally {

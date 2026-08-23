@@ -16,6 +16,7 @@ export default function VerifyPage() {
   const password = location.state?.password;
   const role = location.state?.role;
   const studentOnly = location.state?.studentOnly === true;
+  const returnTo = location.state?.returnTo?.startsWith("/") ? location.state.returnTo : "/dashboard";
 
   const [digits, setDigits] = useState(Array(CODE_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
@@ -73,11 +74,11 @@ export default function VerifyPage() {
         throw new Error("Bu sahifa faqat o'quvchilar uchun. O'qituvchilar alohida paneldan kiradi.");
       }
       if (!res.user.onboarding_completed) {
-        navigate("/onboarding", { replace: true });
+        navigate("/onboarding", { replace: true, state: { returnTo } });
       } else if (res.user.role === "TEACHER") {
         navigate("/teacher/dashboard", { replace: true });
       } else {
-        navigate("/dashboard", { replace: true });
+        navigate(returnTo, { replace: true });
       }
     } catch (err) {
       setError(err);

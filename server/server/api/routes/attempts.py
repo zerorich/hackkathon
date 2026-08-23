@@ -247,11 +247,18 @@ async def create_duel(attempt_id: str, user: Student, db: DbSession):
     existing = await db.execute(
         select(Duel).where(Duel.creator_attempt_id == attempt.id).with_for_update()
     )
-    if existing.scalar_one_or_none():
+    existing_duel = existing.scalar_one_or_none()
+    if existing_duel:
         raise AppError(
             ERROR_CODES.DUEL_ALREADY_EXISTS,
             "Duel already exists for this attempt",
             status_code=409,
+            details={
+                "duel_id": existing_duel.id,
+                "share_code": existing_duel.share_code,
+                "share_path": f"/duel/{existing_duel.share_code}",
+                "expires_at": existing_duel.expires_at.isoformat(),
+            },
         )
 
     settings = get_settings()
@@ -267,10 +274,22 @@ async def create_duel(attempt_id: str, user: Student, db: DbSession):
             db.add(duel)
             await db.flush()
     except IntegrityError:
+        existing = await db.execute(select(Duel).where(Duel.creator_attempt_id == attempt.id))
+        existing_duel = existing.scalar_one_or_none()
         raise AppError(
             ERROR_CODES.DUEL_ALREADY_EXISTS,
             "Duel already exists for this attempt",
             status_code=409,
+            details=(
+                {
+                    "duel_id": existing_duel.id,
+                    "share_code": existing_duel.share_code,
+                    "share_path": f"/duel/{existing_duel.share_code}",
+                    "expires_at": existing_duel.expires_at.isoformat(),
+                }
+                if existing_duel
+                else None
+            ),
         ) from None
     return success_response(
         {

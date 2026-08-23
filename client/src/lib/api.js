@@ -22,10 +22,11 @@ export function clearTokens() {
 }
 
 export class ApiError extends Error {
-  constructor(code, message, status) {
+  constructor(code, message, status, details = null) {
     super(message);
     this.code = code;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -104,7 +105,8 @@ async function request(path, { method = "GET", body, auth = true, _retry = false
     throw new ApiError(
       json?.error?.code || "INTERNAL_ERROR",
       json?.error?.message || "Something went wrong.",
-      res.status
+      res.status,
+      json?.error?.details || null
     );
   }
 

@@ -215,6 +215,8 @@ async def test_duel_already_exists_conflict(client: AsyncClient):
     )
     assert second.status_code == 409
     assert second.json()["error"]["code"] == "DUEL_ALREADY_EXISTS"
+    assert second.json()["error"]["details"]["duel_id"] == first.json()["data"]["duel_id"]
+    assert second.json()["error"]["details"]["share_path"].startswith("/duel/")
 
 
 @pytest.mark.asyncio
@@ -273,6 +275,7 @@ async def test_finish_duel_accept_flow(client: AsyncClient):
     assert duel_data["status"] == "COMPLETED"
     assert duel_data["result_type"] == "CHALLENGER_WIN"
     assert duel_data["winner_id"] is not None
+    assert duel_data["winner_bonus_xp"] == 30
     assert duel_data["accepted_at"] is not None
     assert duel_data["challenge"] is not None
 
@@ -302,9 +305,37 @@ async def test_duel_peer_payload_does_not_expose_login_identifier(client: AsyncC
     )
     assert preview.status_code == 200
     challenger = preview.json()["data"]["challenger"]
+    assert preview.json()["data"]["duel_id"] == created.json()["data"]["duel_id"]
     assert set(challenger) == {"id", "display_name", "avatar_url"}
     assert "identifier" not in challenger
     assert "role" not in challenger
+
+
+@pytest.mark.asyncio
+async def test_my_duels_includes_display_context(client: AsyncClient):
+    setup = await _setup_ready_challenge(client)
+    start = await client.post(
+        f"/api/v1/challenges/{setup['challenge_id']}/attempts",
+        headers=setup["student1_headers"],
+    )
+    attempt_id = start.json()["data"]["attempt_id"]
+    await _answer_all(client, attempt_id, setup["questions"], setup["student1_headers"])
+    await client.post(f"/api/v1/attempts/{attempt_id}/finish", headers=setup["student1_headers"])
+    created = await client.post(
+        f"/api/v1/attempts/{attempt_id}/duels", headers=setup["student1_headers"]
+    )
+
+    response = await client.get("/api/v1/me/duels", headers=setup["student1_headers"])
+    assert response.status_code == 200
+    duel = next(
+        item
+        for item in response.json()["data"]["items"]
+        if item["id"] == created.json()["data"]["duel_id"]
+    )
+    assert duel["challenge"]["topic_title"] == "Fractions"
+    assert duel["challenge"]["subject_name"] == "Math"
+    assert duel["challenger"]["display_name"]
+    assert duel["creator_score"] == 1000
 
 
 @pytest.mark.asyncio

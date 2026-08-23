@@ -88,10 +88,20 @@ export default function DuelInvitePage() {
           <p className="field-hint">Bu — sizning o'z taklifingiz. Uni do'stingizga ulashing.</p>
         )}
         {status === "ACTIVE" && (
-          <EmptyView icon={<Swords size={26} />} title="Taklif allaqachon qabul qilingan" subtitle="Natijani Duellar bo'limidan ko'ring." />
+          <>
+            <EmptyView icon={<Swords size={26} />} title="Taklif allaqachon qabul qilingan" subtitle="Duel davom etmoqda." />
+            <button className="btn btn-primary btn-block" onClick={() => navigate(`/duels/${preview.duel_id}`)}>
+              Duelni ochish
+            </button>
+          </>
         )}
         {status === "COMPLETED" && (
-          <EmptyView icon={<Swords size={26} />} title="Bu duel yakunlangan" subtitle="Natijani Duellar bo'limidan ko'ring." />
+          <>
+            <EmptyView icon={<Swords size={26} />} title="Bu duel yakunlangan" subtitle="G'olib va natijalarni ko'ring." />
+            <button className="btn btn-primary btn-block" onClick={() => navigate(`/duels/${preview.duel_id}`)}>
+              Natijani ko'rish
+            </button>
+          </>
         )}
         {(status === "EXPIRED" || status === "CANCELLED") && (
           <EmptyView icon={<Clock size={26} />} title="Bu taklif endi mavjud emas." />

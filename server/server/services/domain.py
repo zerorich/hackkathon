@@ -1043,11 +1043,13 @@ class DuelService:
                 status_code=409,
             )
         existing = await self.db.execute(select(Duel).where(Duel.creator_attempt_id == attempt.id))
-        if existing.scalar_one_or_none():
+        existing_duel = existing.scalar_one_or_none()
+        if existing_duel:
             raise AppError(
                 ERROR_CODES.DUEL_ALREADY_EXISTS,
                 "Duel already exists for this attempt",
                 status_code=409,
+                details={"duel_id": existing_duel.id},
             )
 
         bot = await self._get_or_create_bot()

@@ -18,7 +18,13 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
   if (user && !user.onboarding_completed && location.pathname !== "/onboarding") {
-    return <Navigate to="/onboarding" replace />;
+    return (
+      <Navigate
+        to="/onboarding"
+        replace
+        state={{ returnTo: `${location.pathname}${location.search}${location.hash}` }}
+      />
+    );
   }
   return <Outlet />;
 }
@@ -33,8 +39,16 @@ export function RoleRoute({ role }) {
 
 export function GuestRoute() {
   const { status, user } = useAuth();
+  const location = useLocation();
   if (status === "authenticated") {
-    return <Navigate to={homePathFor(user)} replace />;
+    const from = location.state?.from;
+    const returnTo = location.state?.returnTo;
+    const destination = from?.pathname?.startsWith("/")
+      ? `${from.pathname}${from.search || ""}${from.hash || ""}`
+      : returnTo?.startsWith("/")
+      ? returnTo
+      : homePathFor(user);
+    return <Navigate to={destination} replace />;
   }
   return <Outlet />;
 }

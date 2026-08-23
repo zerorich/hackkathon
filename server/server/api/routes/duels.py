@@ -13,7 +13,7 @@ from server.api.mappers import (
     duel_result_type,
     duel_status_to_api,
 )
-from server.core.enums import DuelStatus, UserRole
+from server.core.enums import DuelStatus, UserRole, XpSourceType
 from server.core.errors import ERROR_CODES, AppError, success_response
 from server.models.entities import (
     Attempt,
@@ -22,6 +22,7 @@ from server.models.entities import (
     Question,
     Topic,
     User,
+    XpLedger,
     is_before_utc,
     utcnow,
 )
@@ -65,6 +66,7 @@ async def preview_duel(share_code: str, user: CurrentUser, db: DbSession):
     subject_name = challenge.topic.subject.name if challenge and challenge.topic.subject else ""
     return success_response(
         {
+            "duel_id": duel.id,
             "share_code": duel.share_code,
             "status": duel_status_to_api(duel.status),
             "challenger": AuthService.public_user_dict(creator) if creator else None,
@@ -113,6 +115,16 @@ async def get_duel(duel_id: str, user: CurrentUser, db: DbSession):
     )
     challenge = await _load_challenge(db, duel.challenge_id)
     winner = await db.get(User, duel.winner_id) if duel.winner_id else None
+    winner_bonus_xp = 0
+    if duel.winner_id:
+        bonus_result = await db.execute(
+            select(XpLedger.amount).where(
+                XpLedger.user_id == duel.winner_id,
+                XpLedger.source_type == XpSourceType.DUEL_WIN,
+                XpLedger.source_id == duel.id,
+            )
+        )
+        winner_bonus_xp = bonus_result.scalar_one_or_none() or 0
 
     return success_response(
         {
@@ -133,6 +145,7 @@ async def get_duel(duel_id: str, user: CurrentUser, db: DbSession):
             },
             "winner_id": duel.winner_id,
             "winner": AuthService.public_user_dict(winner) if winner else None,
+            "winner_bonus_xp": winner_bonus_xp,
             "result_type": duel_result_type(duel),
             "expires_at": duel.expires_at,
             "accepted_at": duel.accepted_at,
