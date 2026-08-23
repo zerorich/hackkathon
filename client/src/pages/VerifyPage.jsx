@@ -8,13 +8,14 @@ const CODE_LENGTH = 6;
 const RESEND_COOLDOWN = 30;
 
 export default function VerifyPage() {
-  const { verifyOtp, requestOtp } = useAuth();
+  const { verifyOtp, requestOtp, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const identifier = location.state?.identifier;
   const [demoCode, setDemoCode] = useState(location.state?.demoCode);
   const password = location.state?.password;
   const role = location.state?.role;
+  const studentOnly = location.state?.studentOnly === true;
 
   const [digits, setDigits] = useState(Array(CODE_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
@@ -67,6 +68,10 @@ export default function VerifyPage() {
     setError(null);
     try {
       const res = await verifyOtp(identifier, code, { password, role });
+      if (studentOnly && res.user.role !== "STUDENT") {
+        await logout();
+        throw new Error("Bu sahifa faqat o'quvchilar uchun. O'qituvchilar alohida paneldan kiradi.");
+      }
       if (!res.user.onboarding_completed) {
         navigate("/onboarding", { replace: true });
       } else if (res.user.role === "TEACHER") {

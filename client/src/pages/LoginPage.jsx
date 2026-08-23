@@ -1,18 +1,15 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { GraduationCap, KeyRound, Sparkles, UserRound } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { KeyRound, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { friendlyError } from "../lib/errorMessages";
-import { buildTeacherIdentifier, teacherHandle } from "../lib/identifier";
 import { ApiError } from "../lib/api";
 
 export default function LoginPage() {
-  const { requestOtp, loginWithPassword } = useAuth();
+  const { requestOtp, loginWithPassword, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [mode, setMode] = useState("login"); // login | register
-  const [role, setRole] = useState(location.state?.role === "teacher" ? "teacher" : "student");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,20 +18,11 @@ export default function LoginPage() {
 
   const trimmed = identifier.trim();
   const isRegister = mode === "register";
-  const normalizedIdentifier =
-    role === "teacher" ? buildTeacherIdentifier(teacherHandle(trimmed.toLowerCase())) : trimmed;
-  const canSubmit =
-    (role === "teacher" ? trimmed.length >= 2 : trimmed.length >= 3) && password.length >= 4;
+  const normalizedIdentifier = trimmed;
+  const canSubmit = trimmed.length >= 3 && password.length >= 4;
 
   function switchMode(next) {
     setMode(next);
-    setError(null);
-    setPasswordNotSet(false);
-  }
-
-  function switchRole(next) {
-    setRole(next);
-    setIdentifier("");
     setError(null);
     setPasswordNotSet(false);
   }
@@ -47,7 +35,15 @@ export default function LoginPage() {
     setPasswordNotSet(false);
     try {
       const res = await loginWithPassword(normalizedIdentifier, password);
-      navigate(res.user.role === "TEACHER" ? "/teacher/dashboard" : "/dashboard", { replace: true });
+      if (res.user.role !== "STUDENT") {
+        await logout();
+        throw new ApiError(
+          "Bu sahifa faqat o'quvchilar uchun. O'qituvchilar alohida paneldan kiradi.",
+          "STUDENT_LOGIN_ONLY",
+          403
+        );
+      }
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === "PASSWORD_NOT_SET") {
         setPasswordNotSet(true);
@@ -67,7 +63,7 @@ export default function LoginPage() {
     try {
       const res = await requestOtp(finalIdentifier);
       navigate("/verify", {
-        state: { identifier: finalIdentifier, demoCode: res?.demo_code, password, role: role.toUpperCase() },
+        state: { identifier: finalIdentifier, demoCode: res?.demo_code, password, role: "STUDENT", studentOnly: true },
       });
     } catch (err) {
       setError(err);
@@ -82,7 +78,9 @@ export default function LoginPage() {
     setError(null);
     try {
       const res = await requestOtp(normalizedIdentifier);
-      navigate("/verify", { state: { identifier: normalizedIdentifier, demoCode: res?.demo_code } });
+      navigate("/verify", {
+        state: { identifier: normalizedIdentifier, demoCode: res?.demo_code, studentOnly: true },
+      });
     } catch (err) {
       setError(err);
     } finally {
@@ -104,60 +102,21 @@ export default function LoginPage() {
               : "Login va parolingiz bilan kiring."}
           </p>
 
-          <div className="role-tabs" aria-label="Hisob turi">
-            <button
-              type="button"
-              className={`role-tab${role === "student" ? " active-student" : ""}`}
-              onClick={() => switchRole("student")}
-            >
-              <UserRound size={16} /> O'quvchi
-            </button>
-            <button
-              type="button"
-              className={`role-tab${role === "teacher" ? " active-teacher" : ""}`}
-              onClick={() => switchRole("teacher")}
-            >
-              <GraduationCap size={16} /> O'qituvchi
-            </button>
-          </div>
-
           <form onSubmit={isRegister ? handleRegister : handleLogin} className="auth-form">
-            {role === "teacher" ? (
-              <>
-                <label className="field-label" htmlFor="identifier">
-                  O'qituvchi logini
-                </label>
-                <div className="prefixed-input">
-                  <span className="prefix-chip">teacher@</span>
-                  <input
-                    id="identifier"
-                    type="text"
-                    placeholder="masalan: javodbek"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    disabled={loading}
-                    autoFocus
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <label className="field-label" htmlFor="identifier">
-                  Login (email yoki telefon)
-                </label>
-                <input
-                  id="identifier"
-                  className="text-input"
-                  type="text"
-                  autoComplete="username"
-                  placeholder="siz@maktab.uz"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  disabled={loading}
-                  autoFocus
-                />
-              </>
-            )}
+            <label className="field-label" htmlFor="identifier">
+              Login (email yoki telefon)
+            </label>
+            <input
+              id="identifier"
+              className="text-input"
+              type="text"
+              autoComplete="username"
+              placeholder="siz@maktab.uz"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              disabled={loading}
+              autoFocus
+            />
 
             <label className="field-label" htmlFor="password">
               Parol
