@@ -157,7 +157,7 @@ async def test_ai_chat_does_not_send_fallback_reply_back_to_provider(
 
     async def complete(_self, messages, **_kwargs):
         captured.append(messages)
-        if len(captured) == 1:
+        if len(captured) <= 3:
             raise AIClientError(AIClientErrorCode.NETWORK, "offline")
         return ChatCompletionResponse.model_validate(
             {
@@ -195,7 +195,7 @@ async def test_ai_chat_does_not_send_fallback_reply_back_to_provider(
 
     assert first.json()["data"]["fallback_used"] is True
     assert second.json()["data"]["fallback_used"] is False
-    provider_contents = [message["content"] for message in captured[1]]
+    provider_contents = [message["content"] for message in captured[3]]
     assert any("Первый вопрос" in content for content in provider_contents)
     assert any("Второй вопрос" in content for content in provider_contents)
     assert not any("AI-провайдер недоступен" in content for content in provider_contents)
@@ -278,7 +278,7 @@ async def test_ai_chat_uses_uzbek_fallback_for_uzbek_question(client: AsyncClien
     assert response.status_code == 201
     data = response.json()["data"]
     assert data["fallback_used"] is True
-    assert "vaqtinchalik muammo" in data["assistant_message"]["content"]
+    assert "Aniqroq yordam" in data["assistant_message"]["content"]
 
 
 @pytest.mark.asyncio
@@ -311,6 +311,67 @@ async def test_ai_chat_answers_safe_theorem_locally_when_provider_blocks_it(
     assert "a² + b² = c²" in data["assistant_message"]["content"]
     assert "3² + 4²" in data["assistant_message"]["content"]
     assert captured == []
+
+
+@pytest.mark.asyncio
+async def test_ai_chat_handles_gibberish_without_provider(client: AsyncClient, mock_chat_provider):
+    headers = await auth_headers(client, "chat-gibberish@demo.local")
+    created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)
+    conversation_id = created.json()["data"]["id"]
+    response = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "фыв"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    data = response.json()["data"]
+    assert data["fallback_used"] is False
+    assert "сообщение отправилось случайно" in data["assistant_message"]["content"]
+    assert mock_chat_provider == []
+
+
+@pytest.mark.asyncio
+async def test_ai_chat_switches_model_after_empty_primary_response(
+    client: AsyncClient, monkeypatch
+):
+    attempted_models: list[str] = []
+
+    async def complete(_self, _messages, **kwargs):
+        attempted_models.append(kwargs["model"])
+        if kwargs["model"] == "claude-opus-5":
+            return ChatCompletionResponse.model_validate({"model": "claude-opus-5", "choices": []})
+        return ChatCompletionResponse.model_validate(
+            {
+                "model": kwargs["model"],
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Fotosintez — o'simliklarning yorug'likdan oziqa yaratishi.",
+                        }
+                    }
+                ],
+            }
+        )
+
+    async def close(_self):
+        return None
+
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.chat_completions", complete)
+    monkeypatch.setattr("server.services.chat.AgentRouterClient.close", close)
+    headers = await auth_headers(client, "chat-model-failover@demo.local")
+    created = await client.post("/api/v1/ai/chat/conversations", json={}, headers=headers)
+    conversation_id = created.json()["data"]["id"]
+    response = await client.post(
+        f"/api/v1/ai/chat/conversations/{conversation_id}/messages",
+        json={"content": "Fotosintezni tushuntirib ber"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["data"]["fallback_used"] is False
+    assert attempted_models == ["claude-opus-5", "gpt-5.6-sol"]
 
 
 @pytest.mark.asyncio

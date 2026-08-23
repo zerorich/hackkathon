@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     agentrouter_api_key: SecretStr = Field(default=SecretStr("your-api-key-here"))
     agentrouter_base_url: str = "https://agentrouter.org/v1"
     agentrouter_model: str = "claude-opus-5"
+    agentrouter_fallback_models: str = "gpt-5.6-sol,claude-opus-4-8"
     agentrouter_timeout_seconds: float = 120.0
     agentrouter_max_retries: int = 3
     agentrouter_user_agent: str = "claude-cli/2.1.119 (external, cli)"
@@ -63,6 +64,7 @@ class Settings(BaseSettings):
     ai_chat_context_messages: int = Field(default=20, ge=2, le=100)
     ai_chat_max_response_tokens: int = Field(default=800, ge=64, le=4000)
     ai_chat_max_response_chars: int = Field(default=12000, ge=500, le=50000)
+    ai_chat_model_timeout_seconds: float = Field(default=15.0, ge=5.0, le=60.0)
 
     demo_question_count: int = Field(default=5, ge=5, le=10)
     duel_expiry_hours: int = Field(default=24, ge=1)
@@ -131,6 +133,14 @@ class Settings(BaseSettings):
     def chat_completions_url(self) -> str:
         base = self.agentrouter_base_url.rstrip("/")
         return f"{base}/chat/completions"
+
+    @property
+    def agentrouter_chat_models(self) -> tuple[str, ...]:
+        models = [
+            self.agentrouter_model,
+            *(model.strip() for model in self.agentrouter_fallback_models.split(",")),
+        ]
+        return tuple(dict.fromkeys(model for model in models if model))
 
 
 @lru_cache

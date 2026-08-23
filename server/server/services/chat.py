@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 
 import structlog
@@ -222,6 +223,10 @@ class AiChatService:
         if local_answer is not None:
             return local_answer, "local-education", None, None, None, False
 
+        clarification = self._gibberish_clarification(content)
+        if clarification is not None:
+            return clarification, "local-assistant", None, None, None, False
+
         if AgentRouterClient._api_key_missing(self.settings):
             if self.settings.ai_use_fallback_on_error:
                 return self._fallback(content), "fallback", None, None, None, True
@@ -260,13 +265,28 @@ class AiChatService:
             await client.close()
 
     async def _request_provider(
-        self, client: AgentRouterClient, history: list[dict[str, str]]
+        self,
+        client: AgentRouterClient,
+        history: list[dict[str, str]],
+        *,
+        model: str,
     ) -> ChatCompletionResponse:
-        return await client.chat_completions(
-            [{"role": "system", "content": SYSTEM_PROMPT}, *history],
-            temperature=0.3,
-            max_tokens=self.settings.ai_chat_max_response_tokens,
-        )
+        try:
+            return await asyncio.wait_for(
+                client.chat_completions(
+                    [{"role": "system", "content": SYSTEM_PROMPT}, *history],
+                    model=model,
+                    temperature=0.3,
+                    max_tokens=self.settings.ai_chat_max_response_tokens,
+                ),
+                timeout=self.settings.ai_chat_model_timeout_seconds,
+            )
+        except TimeoutError as exc:
+            raise AIClientError(
+                AIClientErrorCode.TIMEOUT,
+                "AI model request timed out",
+                retryable=True,
+            ) from exc
 
     async def _request_with_recovery(
         self,
@@ -274,33 +294,10 @@ class AiChatService:
         content: str,
         history: list[dict[str, str]],
     ) -> ChatCompletionResponse:
-        try:
-            response = await self._request_provider(client, history)
-            if self._has_text_reply(response):
-                return response
-            last_error = AIClientError(
-                AIClientErrorCode.INVALID_RESPONSE,
-                "AI provider returned no answer",
-                status_code=200,
-            )
-        except AIClientError as exc:
-            last_error = exc
-
-        # Some OpenAI-compatible Claude routes reject an otherwise valid legacy
-        # conversation history. Retry only the current question first.
-        if (
-            last_error.status_code == 400 or last_error.code == AIClientErrorCode.INVALID_RESPONSE
-        ) and len(history) > 1:
-            logger.warning(
-                "ai_chat_history_rejected",
-                error_code=last_error.code,
-                status_code=last_error.status_code,
-                history_messages=len(history),
-            )
+        last_error: AIClientError | None = None
+        for model in self.settings.agentrouter_chat_models:
             try:
-                response = await self._request_provider(
-                    client, [{"role": "user", "content": content}]
-                )
+                response = await self._request_provider(client, history, model=model)
                 if self._has_text_reply(response):
                     return response
                 last_error = AIClientError(
@@ -311,6 +308,35 @@ class AiChatService:
             except AIClientError as exc:
                 last_error = exc
 
+            logger.warning(
+                "ai_chat_model_failed",
+                model=model,
+                error_code=last_error.code,
+                status_code=last_error.status_code,
+            )
+
+            # Retry the same model without legacy history before switching.
+            if len(history) > 1 and (
+                last_error.status_code == 400
+                or last_error.code == AIClientErrorCode.INVALID_RESPONSE
+            ):
+                try:
+                    response = await self._request_provider(
+                        client,
+                        [{"role": "user", "content": content}],
+                        model=model,
+                    )
+                    if self._has_text_reply(response):
+                        return response
+                    last_error = AIClientError(
+                        AIClientErrorCode.INVALID_RESPONSE,
+                        "AI provider returned no answer",
+                        status_code=200,
+                    )
+                except AIClientError as exc:
+                    last_error = exc
+
+        assert last_error is not None
         raise last_error
 
     @staticmethod
@@ -334,6 +360,24 @@ class AiChatService:
         )
 
     @staticmethod
+    def _gibberish_clarification(content: str) -> str | None:
+        compact = "".join(character for character in content if character.isalpha())
+        if not compact or len(compact) > 5 or any(character.isspace() for character in content):
+            return None
+        lowered = compact.casefold()
+        if lowered in {"salom", "привет", "hello", "hi", "hey"}:
+            return None
+        if any("а" <= character <= "я" or character == "ё" for character in lowered):
+            return (
+                "Похоже, сообщение отправилось случайно. Напишите учебный вопрос или тему — "
+                "например: «Объясни дроби простыми словами»."
+            )
+        return (
+            "Xabar tasodifan yuborilganga o'xshaydi. O'quv savoli yoki mavzuni yozing — "
+            'masalan: "Kasrlarni sodda tushuntir".'
+        )
+
+    @staticmethod
     def _unsafe(content: str) -> bool:
         lowered = content.casefold()
         blocked = ("как сделать бомбу", "how to make a bomb", "убить себя", "kill myself")
@@ -354,12 +398,12 @@ class AiChatService:
         )
         if any(marker in lowered for marker in uzbek_markers):
             return (
-                "Hozir AI xizmatiga ulanishda vaqtinchalik muammo yuz berdi. "
-                "Savolingiz saqlandi — bir necha soniyadan keyin qayta yuboring."
+                "Savolni tushundim. Aniqroq yordam berishim uchun mavzu, berilgan "
+                "ma'lumotlar va nimani topish yoki tushuntirish kerakligini yozing."
             )
         return (
-            "Сейчас не удалось связаться с AI-сервисом. "
-            "Вопрос сохранён — повторите отправку через несколько секунд."
+            "Я понял вопрос. Чтобы помочь точнее, добавьте немного деталей: "
+            "предмет, условие и что именно нужно найти или объяснить."
         )
 
     @staticmethod
