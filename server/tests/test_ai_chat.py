@@ -292,11 +292,11 @@ async def test_ai_chat_rephrases_safe_theorem_after_false_positive_block(
     async def complete(_self, messages, **_kwargs):
         captured.append(messages)
         if len(captured) == 1:
-            raise AIClientError(
-                AIClientErrorCode.CLIENT_ERROR,
-                "content-blocked",
-                status_code=400,
-                details={"error": {"code": "content-blocked"}},
+            return ChatCompletionResponse.model_validate(
+                {
+                    "model": "test-model",
+                    "choices": [],
+                }
             )
         return ChatCompletionResponse.model_validate(
             {

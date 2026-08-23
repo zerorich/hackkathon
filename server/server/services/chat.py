@@ -271,13 +271,22 @@ class AiChatService:
         history: list[dict[str, str]],
     ) -> ChatCompletionResponse:
         try:
-            return await self._request_provider(client, history)
+            response = await self._request_provider(client, history)
+            if self._has_text_reply(response):
+                return response
+            last_error = AIClientError(
+                AIClientErrorCode.INVALID_RESPONSE,
+                "AI provider returned no answer",
+                status_code=200,
+            )
         except AIClientError as exc:
             last_error = exc
 
         # Some OpenAI-compatible Claude routes reject an otherwise valid legacy
         # conversation history. Retry only the current question first.
-        if last_error.status_code == 400 and len(history) > 1:
+        if (
+            last_error.status_code == 400 or last_error.code == AIClientErrorCode.INVALID_RESPONSE
+        ) and len(history) > 1:
             logger.warning(
                 "ai_chat_history_rejected",
                 error_code=last_error.code,
@@ -285,7 +294,16 @@ class AiChatService:
                 history_messages=len(history),
             )
             try:
-                return await self._request_provider(client, [{"role": "user", "content": content}])
+                response = await self._request_provider(
+                    client, [{"role": "user", "content": content}]
+                )
+                if self._has_text_reply(response):
+                    return response
+                last_error = AIClientError(
+                    AIClientErrorCode.INVALID_RESPONSE,
+                    "AI provider returned no answer",
+                    status_code=200,
+                )
             except AIClientError as exc:
                 last_error = exc
 
@@ -299,8 +317,25 @@ class AiChatService:
                 error_code=last_error.code,
                 status_code=last_error.status_code,
             )
-            return await self._request_provider(client, [{"role": "user", "content": rephrased}])
+            response = await self._request_provider(
+                client, [{"role": "user", "content": rephrased}]
+            )
+            if self._has_text_reply(response):
+                return response
+            raise AIClientError(
+                AIClientErrorCode.INVALID_RESPONSE,
+                "AI provider returned no answer after safe rephrase",
+                status_code=200,
+            )
         raise last_error
+
+    @staticmethod
+    def _has_text_reply(response: ChatCompletionResponse) -> bool:
+        return bool(
+            response.choices
+            and isinstance(response.choices[0].message.content, str)
+            and response.choices[0].message.content.strip()
+        )
 
     @staticmethod
     def _safe_educational_rephrase(content: str, error: AIClientError) -> str | None:
@@ -309,9 +344,10 @@ class AiChatService:
             details = error.details.get("error")
             if isinstance(details, dict):
                 details_code = str(details.get("code", ""))
-        if error.status_code != 400 or (
-            details_code != "content-blocked" and "content-blocked" not in error.message
-        ):
+        is_content_block = error.status_code == 400 and (
+            details_code == "content-blocked" or "content-blocked" in error.message
+        )
+        if not is_content_block and error.code != AIClientErrorCode.INVALID_RESPONSE:
             return None
 
         lowered = content.casefold()
