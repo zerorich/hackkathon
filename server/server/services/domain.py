@@ -518,6 +518,7 @@ class MembershipService:
                 {
                     "user_id": member.id,
                     "display_name": member.display_name,
+                    "identifier": member.identifier,
                     "role": membership.role,
                     "joined_at": membership.joined_at,
                     "level": stats.level if stats else 0,

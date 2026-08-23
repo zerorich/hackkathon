@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from server.api.deps import CurrentUser, DbSession, require_roles
 from server.api.schemas import ClassCreateBody, ClassJoinBody
-from server.core.enums import MembershipRole, MembershipStatus, UserRole
+from server.core.enums import ClassStatus, MembershipRole, MembershipStatus, UserRole
 from server.core.errors import success_response
 from server.models.entities import ClassMembership, SchoolClass
 from server.services.domain import MembershipService
@@ -24,14 +24,19 @@ def _can_see_invite_code(user: CurrentUser) -> bool:
 @router.get("")
 @router.get("/", include_in_schema=False)
 async def list_classes(user: CurrentUser, db: DbSession):
-    result = await db.execute(
-        select(SchoolClass)
-        .join(ClassMembership, ClassMembership.class_id == SchoolClass.id)
-        .where(
-            ClassMembership.user_id == user.id,
-            ClassMembership.status == MembershipStatus.ACTIVE,
+    if user.role == UserRole.ADMIN:
+        result = await db.execute(
+            select(SchoolClass).where(SchoolClass.status == ClassStatus.ACTIVE)
         )
-    )
+    else:
+        result = await db.execute(
+            select(SchoolClass)
+            .join(ClassMembership, ClassMembership.class_id == SchoolClass.id)
+            .where(
+                ClassMembership.user_id == user.id,
+                ClassMembership.status == MembershipStatus.ACTIVE,
+            )
+        )
     classes = result.scalars().unique().all()
     return success_response(
         [

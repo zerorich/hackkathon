@@ -71,13 +71,19 @@ async def admin_users(
 async def admin_update_user_status(
     target_user_id: str,
     body: UserStatusUpdateBody,
-    _user: Admin,
+    current_user: Admin,
     db: DbSession,
 ):
-    user = await db.get(User, target_user_id)
-    if user is None:
+    target_user = await db.get(User, target_user_id)
+    if target_user is None:
         raise AppError(ERROR_CODES.NOT_FOUND, "User not found", status_code=404)
-    user.status = body.status
+    if current_user.id == target_user_id and body.status == "BLOCKED":
+        raise AppError(
+            ERROR_CODES.CONFLICT,
+            "Administrators cannot block their own account",
+            status_code=409,
+        )
+    target_user.status = body.status
     await db.flush()
     return success_response({"success": True})
 

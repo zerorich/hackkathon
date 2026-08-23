@@ -36,21 +36,6 @@ async def _admin_headers(client: AsyncClient, session_factory) -> dict[str, str]
     return await auth_headers(client, "admin@demo.local")
 
 
-async def _add_class_member(session_factory, class_id: str, user_id: str) -> None:
-    from server.core.enums import MembershipRole
-    from server.models.entities import ClassMembership
-
-    async with session_factory() as session:
-        session.add(
-            ClassMembership(
-                class_id=class_id,
-                user_id=user_id,
-                role=MembershipRole.STUDENT,
-            )
-        )
-        await session.commit()
-
-
 @pytest.mark.asyncio
 async def test_join_archived_class_returns_class_archived(client: AsyncClient, session_factory):
     teacher_headers = await auth_headers(client, "teacher@demo.local")
@@ -84,6 +69,7 @@ async def test_list_members_includes_stats(client: AsyncClient):
     members = resp.json()["data"]
     assert len(members) >= 1
     teacher_member = next(m for m in members if m["role"] == "TEACHER")
+    assert teacher_member["identifier"] == "teacher@demo.local"
     assert teacher_member["level"] == 0
     assert teacher_member["total_xp"] == 0
     assert teacher_member["streak"] == 0
@@ -183,15 +169,13 @@ async def test_teacher_not_of_class_cannot_manage_members(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_admin_sees_invite_code_in_list(client: AsyncClient, session_factory):
+async def test_admin_lists_all_active_classes_without_membership(
+    client: AsyncClient, session_factory
+):
     teacher_headers = await auth_headers(client, "teacher@demo.local")
     created = await _create_class(client, teacher_headers)
 
     admin_headers = await _admin_headers(client, session_factory)
-    async with session_factory() as session:
-        result = await session.execute(select(User).where(User.identifier == "admin@demo.local"))
-        admin_user = result.scalar_one()
-    await _add_class_member(session_factory, created["id"], admin_user.id)
 
     resp = await client.get("/api/v1/classes/", headers=admin_headers)
     assert resp.status_code == 200
