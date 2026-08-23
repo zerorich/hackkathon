@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Zehn AI</string>
+    <string name="nav_home">Bosh sahifa</string>
+    <string name="nav_subjects">Fanlar</string>
+    <string name="nav_ai">Zehn AI</string>
+    <string name="nav_leaderboard">Reyting</string>
+    <string name="nav_duels">Duellar</string>
+    <string name="nav_profile">Profil</string>
+</resources>

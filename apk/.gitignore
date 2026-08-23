@@ -1,0 +1,16 @@
+*.iml
+.gradle
+/local.properties
+/.jdk/
+/bootstrap_mvp.py
+/make_bootstrap_once.py
+/.sources_partial.json
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.ap_
+*.aab
