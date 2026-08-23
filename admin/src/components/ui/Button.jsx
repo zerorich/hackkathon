@@ -6,11 +6,13 @@ export function Button({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  loading = false,
   disabled = false,
   className = '',
   icon: Icon,
   ...props
 }) {
+  const isBusy = isLoading || loading
   const variantClass = {
     primary: 'btn-primary',
     secondary: 'btn-secondary',
@@ -27,10 +29,10 @@ export function Button({
   return (
     <button
       className={cn('btn', variantClass, sizeClass, className)}
-      disabled={disabled || isLoading}
+      disabled={disabled || isBusy}
       {...props}
     >
-      {isLoading ? (
+      {isBusy ? (
         <Loader2 className="w-4 h-4 animate-spin" />
       ) : Icon ? (
         <Icon className="w-4 h-4" />

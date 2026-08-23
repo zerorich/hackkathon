@@ -11,10 +11,14 @@ import { LeaderboardPage } from '../analytics/pages/LeaderboardPage'
 import { ActivityPage } from '../analytics/pages/ActivityPage'
 import { AiJobsPage } from '../analytics/pages/AiJobsPage'
 import { ClassesPage } from '../classes/ClassesPage'
+import { ClassDetailPage } from '../classes/ClassDetailPage'
+import { SubjectsPage } from '../subjects/SubjectsPage'
+import { ChallengesPage } from '../challenges/ChallengesPage'
+import { AdminUsersPage } from '../admin/AdminUsersPage'
 import { useClass } from '../../stores/ClassContext'
 
 export function AppShell() {
-  const [currentRoute, setCurrentRoute] = useState('dashboard')
+  const [currentRoute, setCurrentRoute] = useState('classes')
   const { refreshClasses, loadingClasses } = useClass()
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
@@ -29,6 +33,11 @@ export function AppShell() {
   }
 
   const renderContent = () => {
+    if (currentRoute.startsWith('class-detail-')) {
+      const classId = currentRoute.replace('class-detail-', '')
+      return <ClassDetailPage key={`${classId}-${refreshTrigger}`} classId={classId} onNavigate={navigateTo} />
+    }
+
     if (currentRoute.startsWith('analytics-topic-')) {
       const topicId = currentRoute.replace('analytics-topic-', '')
       return <TopicDetailPage key={`${topicId}-${refreshTrigger}`} topicId={topicId} onNavigate={navigateTo} />
@@ -40,6 +49,17 @@ export function AppShell() {
     }
 
     switch (currentRoute) {
+      // Aziz Part A Management Routes
+      case 'classes':
+        return <ClassesPage key={`classes-${refreshTrigger}`} onNavigate={navigateTo} />
+      case 'subjects':
+        return <SubjectsPage key={`subjects-${refreshTrigger}`} onNavigate={navigateTo} />
+      case 'challenges':
+        return <ChallengesPage key={`challenges-${refreshTrigger}`} onNavigate={navigateTo} />
+      case 'admin-users':
+        return <AdminUsersPage key={`admin-users-${refreshTrigger}`} />
+
+      // Muhammad Ali Part B Analytics Routes
       case 'dashboard':
         return <DashboardPage key={`dash-${refreshTrigger}`} onNavigate={navigateTo} />
       case 'analytics':
@@ -54,12 +74,8 @@ export function AppShell() {
         return <ActivityPage key={`activity-${refreshTrigger}`} onNavigate={navigateTo} />
       case 'ai-jobs':
         return <AiJobsPage key={`aijobs-${refreshTrigger}`} />
-      case 'classes':
-      case 'subjects':
-      case 'challenges':
-        return <ClassesPage key={`classes-${currentRoute}-${refreshTrigger}`} initialTab={currentRoute} onNavigate={navigateTo} />
       default:
-        return <DashboardPage key={`dash-${refreshTrigger}`} onNavigate={navigateTo} />
+        return <ClassesPage key={`classes-${refreshTrigger}`} onNavigate={navigateTo} />
     }
   }
 

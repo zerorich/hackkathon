@@ -1,6 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1'
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(message, code = 'API_ERROR', status = 500, details = null) {
     super(message)
     this.name = 'ApiError'
@@ -54,7 +54,14 @@ async function request(endpoint, options = {}) {
             headers.Authorization = `Bearer ${newAccess}`
             const retryRes = await fetch(url, { ...config, headers })
             const retryJson = await retryRes.json()
-            if (!retryRes.ok) throw new ApiError(retryJson.error?.message || 'Request failed', retryJson.error?.code, retryRes.status)
+            if (!retryRes.ok) {
+              throw new ApiError(
+                retryJson.error?.message || 'Request failed',
+                retryJson.error?.code,
+                retryRes.status,
+                retryJson.error?.details
+              )
+            }
             return retryJson.data !== undefined ? retryJson.data : retryJson
           }
         }
@@ -107,6 +114,11 @@ export const api = {
         body: { identifier, code },
       }),
     me: () => request('/auth/me'),
+    updateMe: (data) =>
+      request('/auth/me', {
+        method: 'PATCH',
+        body: data,
+      }),
     refresh: (refreshToken) =>
       request('/auth/refresh', {
         method: 'POST',
@@ -118,7 +130,7 @@ export const api = {
       }),
   },
 
-  // Classes API
+  // Classes & Members API (Aziz Part A)
   classes: {
     list: () => request('/classes'),
     get: (classId) => request(`/classes/${classId}`),
@@ -127,9 +139,75 @@ export const api = {
         method: 'POST',
         body: data,
       }),
+    listMembers: (classId) => request(`/classes/${classId}/members`),
+    removeMember: (classId, userId) =>
+      request(`/classes/${classId}/members/${userId}`, {
+        method: 'DELETE',
+      }),
   },
 
-  // Teacher / Analytics API (Muhammad Ali part)
+  // Subjects API (Aziz Part A)
+  subjects: {
+    list: (classId) => request(`/classes/${classId}/subjects`),
+    create: (classId, data) =>
+      request(`/classes/${classId}/subjects`, {
+        method: 'POST',
+        body: data,
+      }),
+    update: (subjectId, data) =>
+      request(`/subjects/${subjectId}`, {
+        method: 'PATCH',
+        body: data,
+      }),
+    archive: (subjectId) =>
+      request(`/subjects/${subjectId}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Topics API (Aziz Part A)
+  topics: {
+    list: (subjectId) => request(`/subjects/${subjectId}/topics`),
+    get: (topicId) => request(`/topics/${topicId}`),
+    create: (subjectId, data) =>
+      request(`/subjects/${subjectId}/topics`, {
+        method: 'POST',
+        body: data,
+      }),
+    update: (topicId, data) =>
+      request(`/topics/${topicId}`, {
+        method: 'PATCH',
+        body: data,
+      }),
+    archive: (topicId) =>
+      request(`/topics/${topicId}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  // Challenges API (Aziz Part A)
+  challenges: {
+    listByTopic: (topicId) => request(`/topics/${topicId}/challenges`),
+    get: (challengeId) => request(`/challenges/${challengeId}`),
+    generate: (topicId, data) =>
+      request(`/topics/${topicId}/challenges/generate`, {
+        method: 'POST',
+        body: data,
+      }),
+    getStatus: (challengeId) => request(`/challenges/${challengeId}/status`),
+    createManual: (topicId, data) =>
+      request(`/topics/${topicId}/challenges`, {
+        method: 'POST',
+        body: data,
+      }),
+    updateStatus: (challengeId, status) =>
+      request(`/challenges/${challengeId}/status`, {
+        method: 'PATCH',
+        body: { status },
+      }),
+  },
+
+  // Teacher / Analytics API (Muhammad Ali Part B)
   teacher: {
     getDashboard: (classId) => request(`/teacher/classes/${classId}/dashboard`),
     getOverview: (classId, params = {}) => {
@@ -192,9 +270,35 @@ export const api = {
       }),
   },
 
-  // Admin Monitoring API
+  // Admin Monitoring & Moderation API
   admin: {
     getOverview: () => request('/admin/overview'),
+    getUsers: (params = {}) => {
+      const query = new URLSearchParams()
+      if (params.role) query.set('role', params.role)
+      if (params.status) query.set('status', params.status)
+      if (params.search) query.set('search', params.search)
+      const qStr = query.toString()
+      return request(`/admin/users${qStr ? `?${qStr}` : ''}`)
+    },
+    updateUserStatus: (userId, status) =>
+      request(`/admin/users/${userId}/status`, {
+        method: 'PATCH',
+        body: { status },
+      }),
+    getChallenges: (params = {}) => {
+      const query = new URLSearchParams()
+      if (params.status) query.set('status', params.status)
+      if (params.origin) query.set('origin', params.origin)
+      if (params.search) query.set('search', params.search)
+      const qStr = query.toString()
+      return request(`/admin/challenges${qStr ? `?${qStr}` : ''}`)
+    },
+    updateChallengeStatus: (challengeId, status) =>
+      request(`/admin/challenges/${challengeId}/status`, {
+        method: 'PATCH',
+        body: { status },
+      }),
     getAiJobs: (params = {}) => {
       const query = new URLSearchParams()
       if (params.status) query.set('status', params.status)

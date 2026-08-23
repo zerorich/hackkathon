@@ -11,37 +11,42 @@ import {
   Layers,
   LogOut,
   FolderKanban,
+  ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '../../stores/AuthContext'
 import { Badge } from '../../components/ui/Badge'
 
 export function Sidebar({ currentRoute, onNavigate }) {
   const { user, logout } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
 
   const navSections = [
     {
-      title: 'Analytics & Insights',
-      items: [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'analytics', label: 'Overview Reports', icon: BarChart3 },
-        { id: 'analytics-topics', label: 'Topics Analytics', icon: BookOpen },
-        { id: 'analytics-students', label: 'Students Analytics', icon: Users },
-        { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-        { id: 'activity', label: 'Activity Stream', icon: Activity },
-      ],
-    },
-    {
-      title: 'System & Operations',
-      items: [
-        { id: 'ai-jobs', label: 'AI Jobs & Status', icon: Cpu, badge: 'Admin' },
-      ],
-    },
-    {
       title: 'Class Management',
       items: [
-        { id: 'classes', label: 'Classes & Roster', icon: GraduationCap },
+        { id: 'classes', label: 'Classes & Rosters', icon: GraduationCap },
         { id: 'subjects', label: 'Subjects & Topics', icon: FolderKanban },
-        { id: 'challenges', label: 'Challenges', icon: Layers },
+        { id: 'challenges', label: 'Assessments & Arena', icon: Layers },
+      ],
+    },
+    {
+      title: 'Analytics & Insights',
+      items: [
+        { id: 'dashboard', label: 'Dashboard Overview', icon: LayoutDashboard },
+        { id: 'analytics', label: 'Detailed Reports', icon: BarChart3 },
+        { id: 'analytics-topics', label: 'Topics Analytics', icon: BookOpen },
+        { id: 'analytics-students', label: 'Students Analytics', icon: Users },
+        { id: 'leaderboard', label: 'Class Leaderboard', icon: Trophy },
+        { id: 'activity', label: 'Live Activity', icon: Activity },
+      ],
+    },
+    {
+      title: 'System & Administration',
+      items: [
+        { id: 'ai-jobs', label: 'AI Jobs & Status', icon: Cpu },
+        ...(isAdmin
+          ? [{ id: 'admin-users', label: 'User Directory', icon: ShieldCheck, badge: 'Admin' }]
+          : []),
       ],
     },
   ]
@@ -69,7 +74,7 @@ export function Sidebar({ currentRoute, onNavigate }) {
             <div style={{ fontWeight: '800', fontSize: '1.05rem', letterSpacing: '-0.02em', color: '#fff' }}>
               Maktab <span style={{ color: '#818cf8' }}>AI Arena</span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Teacher & Admin Panel</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Teacher & Admin Console</div>
           </div>
         </div>
       </div>
@@ -93,7 +98,9 @@ export function Sidebar({ currentRoute, onNavigate }) {
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
               {section.items.map((item) => {
                 const Icon = item.icon
-                const isActive = currentRoute === item.id
+                const isActive =
+                  currentRoute === item.id ||
+                  (item.id === 'classes' && currentRoute.startsWith('class-detail-'))
                 return (
                   <button
                     key={item.id}
