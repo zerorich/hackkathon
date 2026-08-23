@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -9,6 +10,8 @@ from pydantic import ValidationError
 
 from server.core.errors import ERROR_CODES, AppError, error_response
 from server.core.settings import get_settings
+
+logger = structlog.get_logger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -32,7 +35,13 @@ def register_exception_handlers(app: FastAPI) -> None:
         return _validation_error_response(exc.errors())
 
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception(
+            "unhandled_request_exception",
+            request_id=getattr(request.state, "request_id", None),
+            method=request.method,
+            path=request.url.path,
+        )
         details: Any = str(exc) if settings.app_debug else None
         return JSONResponse(
             status_code=500,

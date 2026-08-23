@@ -20,7 +20,5 @@ async def class_leaderboard(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ):
     await MembershipService(db).get_class_for_user(user, class_id)
-    payload = await LeaderboardService(db).for_class(
-        user, class_id, period=period, limit=limit
-    )
+    payload = await LeaderboardService(db).for_class(user, class_id, period=period, limit=limit)
     return success_response(payload)

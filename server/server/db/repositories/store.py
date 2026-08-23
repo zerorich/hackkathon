@@ -4,13 +4,12 @@ import json
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from server.core.enums import (
     AttemptStatus,
-    ChallengeStatus,
     ClassStatus,
     EntityStatus,
     MembershipStatus,
@@ -24,7 +23,6 @@ from server.models import (
     ClassMembership,
     Duel,
     Question,
-    QuestionOption,
     SchoolClass,
     StudentStats,
     Subject,
@@ -168,9 +166,9 @@ class Store:
             select(Attempt)
             .options(
                 selectinload(Attempt.answers),
-                selectinload(Attempt.challenge).selectinload(Challenge.questions).selectinload(
-                    Question.options
-                ),
+                selectinload(Attempt.challenge)
+                .selectinload(Challenge.questions)
+                .selectinload(Question.options),
             )
             .where(Attempt.id == attempt_id)
         )
@@ -185,7 +183,9 @@ class Store:
         )
         return result.scalar_one_or_none()
 
-    async def recent_attempt_accuracies(self, user_id: str, topic_id: str, limit: int = 5) -> list[float]:
+    async def recent_attempt_accuracies(
+        self, user_id: str, topic_id: str, limit: int = 5
+    ) -> list[float]:
         result = await self.session.execute(
             select(Attempt.accuracy_percent)
             .join(Challenge, Challenge.id == Attempt.challenge_id)
@@ -344,11 +344,11 @@ class Store:
     async def assert_class_active(self, class_id: str) -> SchoolClass:
         school_class = await self.get_class(class_id)
         if school_class is None:
-            from server.core.errors import AppError, ERROR_CODES
+            from server.core.errors import ERROR_CODES, AppError
 
             raise AppError(ERROR_CODES.CLASS_NOT_FOUND, "Class not found", status_code=404)
         if school_class.status == ClassStatus.ARCHIVED:
-            from server.core.errors import AppError, ERROR_CODES
+            from server.core.errors import ERROR_CODES, AppError
 
             raise AppError(ERROR_CODES.CLASS_ARCHIVED, "Class is archived", status_code=403)
         return school_class
@@ -356,7 +356,7 @@ class Store:
     async def assert_member(self, class_id: str, user_id: str) -> ClassMembership:
         membership = await self.get_membership(class_id, str(user_id))
         if membership is None or membership.status != MembershipStatus.ACTIVE:
-            from server.core.errors import AppError, ERROR_CODES
+            from server.core.errors import ERROR_CODES, AppError
 
             raise AppError(ERROR_CODES.CLASS_ACCESS_DENIED, "Class access denied", status_code=403)
         return membership
@@ -364,11 +364,11 @@ class Store:
     async def assert_user_active(self, user_id: str) -> User:
         user = await self.get_user(user_id)
         if user is None:
-            from server.core.errors import AppError, ERROR_CODES
+            from server.core.errors import ERROR_CODES, AppError
 
             raise AppError(ERROR_CODES.NOT_FOUND, "User not found", status_code=404)
         if user.status == UserStatus.BLOCKED:
-            from server.core.errors import AppError, ERROR_CODES
+            from server.core.errors import ERROR_CODES, AppError
 
             raise AppError(ERROR_CODES.USER_BLOCKED, "User is blocked", status_code=403)
         return user

@@ -6,9 +6,17 @@ from fastapi import APIRouter
 from sqlalchemy import func, select
 
 from server.api.deps import CurrentUser, DbSession, require_roles
-from server.core.errors import success_response
 from server.core.enums import AttemptStatus, UserRole
-from server.models.entities import ActivityEvent, Attempt, Challenge, StudentStats, Subject, Topic, User
+from server.core.errors import success_response
+from server.models.entities import (
+    ActivityEvent,
+    Attempt,
+    Challenge,
+    StudentStats,
+    Subject,
+    Topic,
+    User,
+)
 from server.services.calculations import calculate_class_analytics
 from server.services.domain import MembershipService
 
@@ -113,7 +121,9 @@ async def teacher_students(class_id: str, user: Teacher, db: DbSession):
 async def teacher_student_detail(class_id: str, user_id: str, user: Teacher, db: DbSession):
     await MembershipService(db).get_class_for_user(user, class_id)
     result = await db.execute(
-        select(StudentStats, User).join(User, User.id == StudentStats.user_id).where(
+        select(StudentStats, User)
+        .join(User, User.id == StudentStats.user_id)
+        .where(
             StudentStats.class_id == class_id,
             StudentStats.user_id == user_id,
         )

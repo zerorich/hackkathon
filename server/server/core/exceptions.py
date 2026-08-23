@@ -4,4 +4,4 @@ from server.core.errors import ERROR_CODES, AppError
 
 ErrorCode = ERROR_CODES
 
-__all__ = ["AppError", "ErrorCode", "ERROR_CODES"]
+__all__ = ["ERROR_CODES", "AppError", "ErrorCode"]

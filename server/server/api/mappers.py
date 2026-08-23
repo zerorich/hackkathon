@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from server.api.schemas import (
-    ChallengeDetailOut,
     ChallengeOut,
     OptionOut,
     OptionWithCorrectOut,
@@ -23,6 +22,12 @@ _DUEL_STATUS_API: dict[str, str] = {
 
 def duel_status_to_api(status: str) -> str:
     return _DUEL_STATUS_API.get(status, status)
+
+
+def duel_status_from_api(status: str) -> str:
+    """Translate the stable public duel state back to its persistence value."""
+    reverse = {public: internal for internal, public in _DUEL_STATUS_API.items()}
+    return reverse.get(status, status)
 
 
 def duel_result_type(duel: Duel) -> str | None:

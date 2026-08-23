@@ -125,7 +125,7 @@ class ChallengeOrchestrator:
         except AgentGenerationError:
             raise
         except Exception as exc:
-            logger.exception("orchestrator_failed run_id=%s error=%s", run_id, exc)
+            logger.exception("orchestrator_failed run_id=%s", run_id)
             orchestrator_run.status = OrchestratorStatus.FAILED
             orchestrator_run.error_code = AI_PROVIDER_UNAVAILABLE
             orchestrator_run.error_message = str(exc)
@@ -166,7 +166,9 @@ class ChallengeOrchestrator:
     ) -> tuple[GeneratedChallenge | None, list[AgentResult], list[str]]:
         results: list[AgentResult] = []
 
-        prep_tasks = [task for task in tasks if task.role in {AgentRole.PLANNER, AgentRole.RESEARCHER}]
+        prep_tasks = [
+            task for task in tasks if task.role in {AgentRole.PLANNER, AgentRole.RESEARCHER}
+        ]
         prep_jobs = [
             (
                 task.id,
@@ -223,7 +225,9 @@ class ChallengeOrchestrator:
             synthesizer_task,
             memory,
             client,
-            questions_payload=[question.model_dump(mode="json") for question in collected_questions],
+            questions_payload=[
+                question.model_dump(mode="json") for question in collected_questions
+            ],
         )
         synthesizer_task.status = (
             AgentTaskStatus.COMPLETED if synth_result.success else AgentTaskStatus.FAILED

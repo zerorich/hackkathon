@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import date, datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import (
     Boolean,
@@ -16,12 +15,10 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from server.core.enums import (
-    ActivityEventType,
     AiJobStatus,
     AttemptStatus,
     ChallengeOrigin,
@@ -37,16 +34,12 @@ from server.core.enums import (
     QuestionType,
     UserRole,
     UserStatus,
-    XpSourceType,
 )
 from server.db.base import Base
 
-if TYPE_CHECKING:
-    pass
-
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def new_uuid() -> str:
@@ -252,7 +245,9 @@ class Attempt(Base):
     correct_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     incorrect_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_questions: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    duel_id: Mapped[str | None] = mapped_column(ForeignKey("duels.id"), nullable=True)
+    duel_id: Mapped[str | None] = mapped_column(
+        ForeignKey("duels.id", use_alter=True, name="fk_attempts_duel_id"), nullable=True
+    )
     accuracy_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     xp_awarded: Mapped[int | None] = mapped_column(Integer, nullable=True)
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -285,6 +280,7 @@ class AttemptAnswer(Base):
 
 class Duel(Base):
     __tablename__ = "duels"
+    __table_args__ = (UniqueConstraint("creator_attempt_id", name="uq_duel_creator_attempt"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     share_code: Mapped[str] = mapped_column(String(32), unique=True, default=generate_share_code)
@@ -324,9 +320,7 @@ class StudentStats(Base):
     total_correct_answers: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     total_answers: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     average_accuracy: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
-    last_attempt_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duels_won: Mapped[int] = mapped_column(Integer, default=0)
     duels_lost: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     duels_drawn: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -356,6 +350,7 @@ class XpLedger(Base):
     __tablename__ = "xp_ledger"
     __table_args__ = (
         UniqueConstraint("user_id", "source_type", "source_id", name="uq_xp_source"),
+        Index("ix_xp_class_user_created", "class_id", "user_id", "created_at"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)

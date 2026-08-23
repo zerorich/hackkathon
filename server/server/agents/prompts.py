@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from server.agents.models import AgentRole
 from server.agents.schemas import ChallengeGenerationRequest, QuestionType
 
 

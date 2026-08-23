@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 
+from server.models.entities import Attempt
 from tests.conftest import auth_headers
 
 
@@ -103,7 +105,7 @@ async def _answer_all(
 
 
 @pytest.mark.asyncio
-async def test_finish_attempt_response_fields(client: AsyncClient):
+async def test_finish_attempt_response_fields(client: AsyncClient, session_factory):
     setup = await _setup_ready_challenge(client)
     start = await client.post(
         f"/api/v1/challenges/{setup['challenge_id']}/attempts",
@@ -122,6 +124,7 @@ async def test_finish_attempt_response_fields(client: AsyncClient):
     assert data["status"] == "COMPLETED"
     assert data["correct_count"] == 2
     assert data["incorrect_count"] == 0
+    assert data["duration_seconds"] >= 0
     assert "accuracy_percent" in data
     assert "duration_seconds" in data
     assert "total_xp" in data
@@ -132,6 +135,41 @@ async def test_finish_attempt_response_fields(client: AsyncClient):
     for question in data["questions"]:
         assert question["is_correct"] is True
         assert question["correct_option_id"] is not None
+
+    async with session_factory() as session:
+        attempt = await session.get(Attempt, attempt_id)
+        assert attempt is not None
+        assert attempt.incorrect_count == 0
+        assert attempt.duration_seconds is not None
+
+
+@pytest.mark.asyncio
+async def test_finish_attempt_persists_incorrect_count(client: AsyncClient, session_factory):
+    setup = await _setup_ready_challenge(client)
+    start = await client.post(
+        f"/api/v1/challenges/{setup['challenge_id']}/attempts",
+        headers=setup["student1_headers"],
+    )
+    attempt_id = start.json()["data"]["attempt_id"]
+    await _answer_all(
+        client,
+        attempt_id,
+        setup["questions"],
+        setup["student1_headers"],
+        prefer_incorrect=True,
+    )
+
+    finish = await client.post(
+        f"/api/v1/attempts/{attempt_id}/finish",
+        headers=setup["student1_headers"],
+    )
+    assert finish.status_code == 200
+    assert finish.json()["data"]["incorrect_count"] == 2
+
+    async with session_factory() as session:
+        persisted = await session.scalar(select(Attempt).where(Attempt.id == attempt_id))
+        assert persisted is not None
+        assert persisted.incorrect_count == 2
 
 
 @pytest.mark.asyncio
@@ -188,9 +226,7 @@ async def test_finish_duel_accept_flow(client: AsyncClient):
         headers=setup["student1_headers"],
     )
     creator_attempt_id = creator_start.json()["data"]["attempt_id"]
-    await _answer_all(
-        client, creator_attempt_id, setup["questions"], setup["student1_headers"]
-    )
+    await _answer_all(client, creator_attempt_id, setup["questions"], setup["student1_headers"])
     creator_finish = await client.post(
         f"/api/v1/attempts/{creator_attempt_id}/finish",
         headers=setup["student1_headers"],
@@ -239,6 +275,36 @@ async def test_finish_duel_accept_flow(client: AsyncClient):
     assert duel_data["winner_id"] is not None
     assert duel_data["accepted_at"] is not None
     assert duel_data["challenge"] is not None
+
+
+@pytest.mark.asyncio
+async def test_duel_peer_payload_does_not_expose_login_identifier(client: AsyncClient):
+    setup = await _setup_ready_challenge(client)
+    start = await client.post(
+        f"/api/v1/challenges/{setup['challenge_id']}/attempts",
+        headers=setup["student1_headers"],
+    )
+    attempt_id = start.json()["data"]["attempt_id"]
+    await _answer_all(client, attempt_id, setup["questions"], setup["student1_headers"])
+    await client.post(
+        f"/api/v1/attempts/{attempt_id}/finish",
+        headers=setup["student1_headers"],
+    )
+    created = await client.post(
+        f"/api/v1/attempts/{attempt_id}/duels",
+        headers=setup["student1_headers"],
+    )
+    share_code = created.json()["data"]["share_code"]
+
+    preview = await client.get(
+        f"/api/v1/duels/code/{share_code}",
+        headers=setup["student2_headers"],
+    )
+    assert preview.status_code == 200
+    challenger = preview.json()["data"]["challenger"]
+    assert set(challenger) == {"id", "display_name", "avatar_url"}
+    assert "identifier" not in challenger
+    assert "role" not in challenger
 
 
 @pytest.mark.asyncio

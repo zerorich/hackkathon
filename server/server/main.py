@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -12,7 +12,7 @@ from server.api.router import api_router
 from server.core.cache import get_cache
 from server.core.logging import setup_logging
 from server.core.settings import get_settings
-from server.db.session import init_db
+from server.db.session import close_db, get_session_factory, init_db
 from server.services.orchestrator import get_orchestrator
 
 
@@ -24,16 +24,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await init_db()
     app.state.orchestrator = get_orchestrator()
+    app.state.orchestrator.start(session_factory=get_session_factory())
 
     if settings.seed_on_startup:
         from server.seed.demo import run_seed
 
         await run_seed()
 
-    yield
-
-    await app.state.orchestrator.close()
-    await get_cache().close()
+    try:
+        yield
+    finally:
+        await app.state.orchestrator.close()
+        await get_cache().close()
+        await close_db()
 
 
 def create_app() -> FastAPI:

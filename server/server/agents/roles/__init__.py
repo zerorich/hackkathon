@@ -61,7 +61,7 @@ class PlannerAgent:
                 output=plan.model_dump(mode="json"),
                 latency_ms=int((time.perf_counter() - started) * 1000),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- agent failure degrades to a safe fallback
             fallback = GenerationPlan(
                 focus_areas=default_focus_areas(request),
                 question_mix=default_question_mix(request),
@@ -108,7 +108,7 @@ class ResearcherAgent:
                 output=research.model_dump(mode="json"),
                 latency_ms=int((time.perf_counter() - started) * 1000),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- agent failure degrades to a safe fallback
             fallback = ResearchBrief(
                 learning_objectives=[request.topic_title],
                 key_concepts=default_key_concepts(request),
@@ -159,8 +159,7 @@ class QuestionWriterAgent:
             focus = plan.focus_areas if plan else default_focus_areas(request)
             concepts = research.key_concepts if research else default_key_concepts(request)
             types = [
-                QuestionType(value)
-                for value in task.input_payload.get("question_types", [])
+                QuestionType(value) for value in task.input_payload.get("question_types", [])
             ] or list(QuestionType)
             count = int(task.input_payload.get("count", 1))
             batch_index = int(task.input_payload.get("batch_index", 0))
@@ -188,7 +187,7 @@ class QuestionWriterAgent:
                 output=batch.model_dump(mode="json"),
                 latency_ms=int((time.perf_counter() - started) * 1000),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- agent failure is returned as task state
             return AgentResult(
                 task_id=task.id,
                 run_id=task.run_id,
@@ -231,7 +230,7 @@ class SynthesizerAgent:
                 output=payload.model_dump(mode="json"),
                 latency_ms=int((time.perf_counter() - started) * 1000),
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- agent failure is returned as task state
             return AgentResult(
                 task_id=task.id,
                 run_id=task.run_id,

@@ -41,8 +41,7 @@ async def test_orchestrator_respects_concurrency_limit():
         factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         async with factory() as session:
-            from server.core.enums import MembershipRole
-            from server.models.entities import ClassMembership, SchoolClass
+            from server.models.entities import SchoolClass
 
             user = User(identifier="t@test.local", display_name="T", role="TEACHER")
             session.add(user)
@@ -171,9 +170,7 @@ async def test_orchestrator_processes_job_with_mocked_ai():
 async def test_orchestrator_releases_slot_on_failure():
     reset_cache()
     orchestrator = AiOrchestrator()
-    orchestrator._client.generate_challenge = AsyncMock(
-        side_effect=RuntimeError("provider down")
-    )
+    orchestrator._client.generate_challenge = AsyncMock(side_effect=RuntimeError("provider down"))
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as conn:

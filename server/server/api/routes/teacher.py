@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, or_, select
 
 from server.api.deps import CurrentUser, DbSession, require_roles
 from server.core.enums import AttemptStatus, DuelStatus, EntityStatus, UserRole
-from server.core.errors import AppError, ERROR_CODES, success_response
+from server.core.errors import ERROR_CODES, AppError, success_response
 from server.models.entities import (
     ActivityEvent,
     Attempt,
@@ -81,7 +81,7 @@ async def _student_duel_stats(db: DbSession, user_id: str, class_id: str) -> dic
 
 @router.get("/classes/{class_id}/dashboard")
 async def teacher_dashboard(class_id: str, user: Teacher, db: DbSession):
-    await MembershipService(db).get_class_for_user(user, class_id)
+    await MembershipService(db).ensure_class_teacher(user, class_id)
     students = await db.execute(
         select(StudentStats, User)
         .join(User, User.id == StudentStats.user_id)
@@ -100,7 +100,9 @@ async def teacher_dashboard(class_id: str, user: Teacher, db: DbSession):
         )
 
     attempts = await db.execute(
-        select(Attempt).where(Attempt.class_id == class_id, Attempt.status == AttemptStatus.COMPLETED)
+        select(Attempt).where(
+            Attempt.class_id == class_id, Attempt.status == AttemptStatus.COMPLETED
+        )
     )
     completed = attempts.scalars().all()
     topic_map: dict[str, tuple[str, list[float]]] = {}
@@ -176,7 +178,7 @@ async def teacher_dashboard(class_id: str, user: Teacher, db: DbSession):
 
 @router.get("/classes/{class_id}/students")
 async def teacher_students(class_id: str, user: Teacher, db: DbSession):
-    await MembershipService(db).get_class_for_user(user, class_id)
+    await MembershipService(db).ensure_class_teacher(user, class_id)
     result = await db.execute(
         select(StudentStats, User)
         .join(User, User.id == StudentStats.user_id)
@@ -200,10 +202,8 @@ async def teacher_students(class_id: str, user: Teacher, db: DbSession):
 
 
 @router.get("/classes/{class_id}/students/{student_user_id}")
-async def teacher_student_detail(
-    class_id: str, student_user_id: str, user: Teacher, db: DbSession
-):
-    await MembershipService(db).get_class_for_user(user, class_id)
+async def teacher_student_detail(class_id: str, student_user_id: str, user: Teacher, db: DbSession):
+    await MembershipService(db).ensure_class_teacher(user, class_id)
     stat_result = await db.execute(
         select(StudentStats).where(
             StudentStats.class_id == class_id,
@@ -256,7 +256,7 @@ async def teacher_student_detail(
 
 @router.get("/classes/{class_id}/topics/analytics")
 async def teacher_topics_analytics(class_id: str, user: Teacher, db: DbSession):
-    await MembershipService(db).get_class_for_user(user, class_id)
+    await MembershipService(db).ensure_class_teacher(user, class_id)
     topics = await db.execute(
         select(Topic)
         .join(Subject, Subject.id == Topic.subject_id)
@@ -299,7 +299,7 @@ async def teacher_topic_analytics(topic_id: str, user: Teacher, db: DbSession):
     subject = await db.get(Subject, topic.subject_id)
     if subject is None:
         raise AppError(ERROR_CODES.SUBJECT_NOT_FOUND, "Subject not found", status_code=404)
-    await MembershipService(db).get_class_for_user(user, subject.class_id)
+    await MembershipService(db).ensure_class_teacher(user, subject.class_id)
 
     attempts = await db.execute(
         select(Attempt)
@@ -346,7 +346,9 @@ async def teacher_topic_analytics(topic_id: str, user: Teacher, db: DbSession):
                     "accuracy_percent": a.accuracy_percent,
                     "completed_at": a.completed_at,
                 }
-                for a in sorted(rows, key=lambda x: x.completed_at or x.started_at, reverse=True)[:10]
+                for a in sorted(rows, key=lambda x: x.completed_at or x.started_at, reverse=True)[
+                    :10
+                ]
             ],
         }
     )
@@ -361,7 +363,7 @@ async def teacher_activity(
     cursor: Annotated[str | None, Query()] = None,
     type: Annotated[str | None, Query()] = None,
 ):
-    await MembershipService(db).get_class_for_user(user, class_id)
+    await MembershipService(db).ensure_class_teacher(user, class_id)
     query = select(ActivityEvent).where(ActivityEvent.class_id == class_id)
     if type:
         query = query.where(ActivityEvent.event_type == type)
@@ -376,7 +378,9 @@ async def teacher_activity(
                 ),
             )
         )
-    query = query.order_by(ActivityEvent.created_at.desc(), ActivityEvent.id.desc()).limit(limit + 1)
+    query = query.order_by(ActivityEvent.created_at.desc(), ActivityEvent.id.desc()).limit(
+        limit + 1
+    )
     result = await db.execute(query)
     events = result.scalars().all()
     next_cursor = None
@@ -409,7 +413,7 @@ async def teacher_report_overview(
     from_: Annotated[datetime | None, Query(alias="from")] = None,
     to: Annotated[datetime | None, Query()] = None,
 ):
-    await MembershipService(db).get_class_for_user(user, class_id)
+    await MembershipService(db).ensure_class_teacher(user, class_id)
     query = select(Attempt).where(
         Attempt.class_id == class_id,
         Attempt.status == AttemptStatus.COMPLETED,
@@ -427,7 +431,9 @@ async def teacher_report_overview(
         duel_query = duel_query.where(Duel.created_at <= to)
     duels = (await db.execute(duel_query)).scalars().all()
 
-    xp_query = select(func.coalesce(func.sum(XpLedger.amount), 0)).where(XpLedger.class_id == class_id)
+    xp_query = select(func.coalesce(func.sum(XpLedger.amount), 0)).where(
+        XpLedger.class_id == class_id
+    )
     if from_:
         xp_query = xp_query.where(XpLedger.created_at >= from_)
     if to:
@@ -491,7 +497,7 @@ async def teacher_report_leaderboard(
     period: Annotated[str, Query()] = "all",
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
 ):
-    await MembershipService(db).get_class_for_user(user, class_id)
+    await MembershipService(db).ensure_class_teacher(user, class_id)
     result = await db.execute(
         select(StudentStats, User)
         .join(User, User.id == StudentStats.user_id)

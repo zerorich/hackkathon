@@ -100,9 +100,7 @@ def resolve_duel_winner(
         return creator.user_id if creator.score > opponent.score else opponent.user_id
     if creator.correct_count != opponent.correct_count:
         return (
-            creator.user_id
-            if creator.correct_count > opponent.correct_count
-            else opponent.user_id
+            creator.user_id if creator.correct_count > opponent.correct_count else opponent.user_id
         )
     if creator.duration_seconds != opponent.duration_seconds:
         return (

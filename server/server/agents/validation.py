@@ -40,9 +40,7 @@ def validate_challenge(
         errors.append("title must not be empty")
 
     if expected_count is not None and len(challenge.questions) != expected_count:
-        errors.append(
-            f"expected {expected_count} questions, got {len(challenge.questions)}"
-        )
+        errors.append(f"expected {expected_count} questions, got {len(challenge.questions)}")
 
     prompts = set()
     for index, question in enumerate(challenge.questions, start=1):

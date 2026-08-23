@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query
 from sqlalchemy import and_, or_, select
+from sqlalchemy.orm import selectinload
 
 from server.api.deps import CurrentUser, DbSession, require_roles
-from server.api.mappers import attempt_to_out
+from server.api.mappers import (
+    attempt_to_out,
+    duel_result_type,
+    duel_status_from_api,
+    duel_status_to_api,
+)
 from server.core.enums import (
     AttemptStatus,
     DuelStatus,
@@ -16,7 +22,7 @@ from server.core.enums import (
     MembershipStatus,
     UserRole,
 )
-from server.core.errors import success_response
+from server.core.errors import ERROR_CODES, AppError, success_response
 from server.models.entities import (
     ActivityEvent,
     Attempt,
@@ -41,8 +47,41 @@ def _encode_cursor(dt: datetime, item_id: str) -> str:
 
 
 def _decode_cursor(cursor: str) -> tuple[datetime, str]:
-    ts, item_id = cursor.split("|", 1)
-    return datetime.fromisoformat(ts), item_id
+    try:
+        ts, item_id = cursor.split("|", 1)
+        if not item_id:
+            raise ValueError
+        return datetime.fromisoformat(ts), item_id
+    except (TypeError, ValueError) as exc:
+        raise AppError(
+            ERROR_CODES.VALIDATION_ERROR,
+            "Invalid pagination cursor",
+            status_code=422,
+        ) from exc
+
+
+def _attempt_history_out(attempt: Attempt) -> dict:
+    payload = attempt_to_out(attempt)
+    challenge = attempt.challenge
+    topic = challenge.topic if challenge else None
+    subject = topic.subject if topic else None
+    payload["challenge"] = (
+        {
+            "id": challenge.id,
+            "title": challenge.title,
+            "difficulty": challenge.difficulty,
+            "question_count": challenge.question_count,
+        }
+        if challenge
+        else None
+    )
+    payload["topic"] = (
+        {"id": topic.id, "title": topic.title, "subject_id": topic.subject_id} if topic else None
+    )
+    payload["subject"] = (
+        {"id": subject.id, "name": subject.name, "icon_key": subject.icon_key} if subject else None
+    )
+    return payload
 
 
 def _paginated(items: list[Any], *, limit: int) -> dict:
@@ -86,9 +125,7 @@ async def _get_class_stats(user_id: str, class_id: str, db: DbSession) -> Studen
 @router.get("/dashboard")
 async def get_dashboard(user: Student, db: DbSession):
     member, school_class = await _get_membership_context(user, db)
-    stats_row = (
-        await _get_class_stats(user.id, member.class_id, db) if member else None
-    )
+    stats_row = await _get_class_stats(user.id, member.class_id, db) if member else None
     total_xp = stats_row.total_xp if stats_row else 0
     level, current_level_xp, next_level_xp = level_progress(total_xp)
 
@@ -106,19 +143,25 @@ async def get_dashboard(user: Student, db: DbSession):
         ]
 
     recommended_topic = None
-    prog_result = await db.execute(
-        select(TopicProgress, Topic)
-        .join(Topic, Topic.id == TopicProgress.topic_id)
-        .where(
-            TopicProgress.user_id == user.id,
-            TopicProgress.mastery_category.in_(
-                [MasteryCategory.WEAK, MasteryCategory.LEARNING]
-            ),
+    rec = None
+    if member:
+        prog_result = await db.execute(
+            select(TopicProgress, Topic)
+            .join(Topic, Topic.id == TopicProgress.topic_id)
+            .join(Subject, Subject.id == Topic.subject_id)
+            .where(
+                TopicProgress.user_id == user.id,
+                Subject.class_id == member.class_id,
+                Topic.status == EntityStatus.ACTIVE,
+                Subject.status == EntityStatus.ACTIVE,
+                TopicProgress.mastery_category.in_(
+                    [MasteryCategory.WEAK, MasteryCategory.LEARNING]
+                ),
+            )
+            .order_by(TopicProgress.mastery_percent.asc())
+            .limit(1)
         )
-        .order_by(TopicProgress.mastery_percent.asc())
-        .limit(1)
-    )
-    rec = prog_result.first()
+        rec = prog_result.first()
     if rec:
         prog, topic = rec
         recommended_topic = {
@@ -128,12 +171,34 @@ async def get_dashboard(user: Student, db: DbSession):
             "mastery_percent": prog.mastery_percent,
             "mastery_category": prog.mastery_category,
         }
+    elif member:
+        fallback = await db.execute(
+            select(Topic, Subject)
+            .join(Subject, Subject.id == Topic.subject_id)
+            .where(
+                Subject.class_id == member.class_id,
+                Subject.status == EntityStatus.ACTIVE,
+                Topic.status == EntityStatus.ACTIVE,
+            )
+            .order_by(Topic.created_at.asc())
+            .limit(1)
+        )
+        fallback_row = fallback.first()
+        if fallback_row:
+            topic, subject = fallback_row
+            recommended_topic = {
+                "topic_id": topic.id,
+                "title": topic.title,
+                "subject_id": subject.id,
+                "subject_name": subject.name,
+                "difficulty": topic.difficulty,
+                "mastery_percent": 0.0,
+                "mastery_category": MasteryCategory.WEAK,
+            }
 
     leaderboard_preview = None
     if member:
-        lb = await LeaderboardService(db).for_class(
-            user, member.class_id, period="all", limit=5
-        )
+        lb = await LeaderboardService(db).for_class(user, member.class_id, period="all", limit=5)
         leaderboard_preview = {
             "period": lb["period"],
             "entries": lb["entries"],
@@ -143,6 +208,11 @@ async def get_dashboard(user: Student, db: DbSession):
     recent = await db.execute(
         select(Attempt)
         .where(Attempt.user_id == user.id, Attempt.status == AttemptStatus.COMPLETED)
+        .options(
+            selectinload(Attempt.challenge)
+            .selectinload(Challenge.topic)
+            .selectinload(Topic.subject)
+        )
         .order_by(Attempt.completed_at.desc())
         .limit(5)
     )
@@ -157,7 +227,10 @@ async def get_dashboard(user: Student, db: DbSession):
     if member:
         activity_result = await db.execute(
             select(ActivityEvent)
-            .where(ActivityEvent.class_id == member.class_id)
+            .where(
+                ActivityEvent.class_id == member.class_id,
+                ActivityEvent.user_id == user.id,
+            )
             .order_by(ActivityEvent.created_at.desc())
             .limit(5)
         )
@@ -192,12 +265,20 @@ async def get_dashboard(user: Student, db: DbSession):
             "completed_challenges": stats_row.attempts_completed if stats_row else 0,
             "subjects": subjects,
             "recommended_topic": recommended_topic,
+            "recommended_topics": [recommended_topic] if recommended_topic else [],
             "leaderboard_preview": leaderboard_preview,
             "active_duels": [
-                {"id": d.id, "share_code": d.share_code, "status": d.status}
+                {
+                    "id": d.id,
+                    "share_code": d.share_code,
+                    "status": duel_status_to_api(d.status),
+                    "challenge_id": d.challenge_id,
+                    "opponent_attempt_id": d.opponent_attempt_id,
+                    "expires_at": d.expires_at,
+                }
                 for d in active_duels.scalars().all()
             ],
-            "recent_attempts": [attempt_to_out(a) for a in recent.scalars().all()],
+            "recent_attempts": [_attempt_history_out(a) for a in recent.scalars().all()],
             "recent_activity": recent_activity,
         }
     )
@@ -213,9 +294,7 @@ async def get_stats(user: Student, db: DbSession):
     completed = sum(r.attempts_completed for r in rows)
     total_correct = sum(r.total_correct_answers for r in rows)
     total_answers = sum(r.total_answers for r in rows)
-    avg_accuracy = (
-        round((total_correct / total_answers) * 100, 2) if total_answers else 0.0
-    )
+    avg_accuracy = round((total_correct / total_answers) * 100, 2) if total_answers else 0.0
     level, current_level_xp, next_level_xp = level_progress(total_xp)
     return success_response(
         {
@@ -270,7 +349,15 @@ async def list_my_attempts(
     subject_id: Annotated[str | None, Query()] = None,
     topic_id: Annotated[str | None, Query()] = None,
 ):
-    query = select(Attempt).where(Attempt.user_id == user.id)
+    query = (
+        select(Attempt)
+        .where(Attempt.user_id == user.id)
+        .options(
+            selectinload(Attempt.challenge)
+            .selectinload(Challenge.topic)
+            .selectinload(Topic.subject)
+        )
+    )
     if topic_id or subject_id:
         query = query.join(Challenge, Challenge.id == Attempt.challenge_id)
         if topic_id:
@@ -293,7 +380,7 @@ async def list_my_attempts(
     page = _paginated(attempts, limit=limit)
     return success_response(
         {
-            "items": [attempt_to_out(a) for a in page["items"]],
+            "items": [_attempt_history_out(a) for a in page["items"]],
             "next_cursor": page["next_cursor"],
         }
     )
@@ -303,13 +390,16 @@ async def list_my_attempts(
 async def list_my_duels(
     user: Student,
     db: DbSession,
-    status: Annotated[str | None, Query()] = None,
+    status: Annotated[
+        Literal["WAITING", "ACTIVE", "COMPLETED", "EXPIRED", "CANCELLED"] | None,
+        Query(),
+    ] = None,
     cursor: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     query = select(Duel).where((Duel.creator_id == user.id) | (Duel.opponent_id == user.id))
     if status:
-        query = query.where(Duel.status == status)
+        query = query.where(Duel.status == duel_status_from_api(status))
     if cursor:
         cursor_dt, cursor_id = _decode_cursor(cursor)
         query = query.where(
@@ -328,9 +418,18 @@ async def list_my_duels(
                 {
                     "id": d.id,
                     "share_code": d.share_code,
-                    "status": d.status,
+                    "status": duel_status_to_api(d.status),
+                    "challenge_id": d.challenge_id,
+                    "creator_id": d.creator_id,
+                    "opponent_id": d.opponent_id,
+                    "creator_attempt_id": d.creator_attempt_id,
+                    "opponent_attempt_id": d.opponent_attempt_id,
                     "winner_id": d.winner_id,
+                    "result_type": duel_result_type(d),
+                    "is_challenger": d.creator_id == user.id,
                     "expires_at": d.expires_at,
+                    "accepted_at": d.accepted_at,
+                    "completed_at": d.completed_at,
                 }
                 for d in page["items"]
             ],

@@ -9,9 +9,15 @@ from sqlalchemy.orm import selectinload
 from server.api.deps import CurrentUser, DbSession, require_roles
 from server.api.mappers import attempt_result_to_out, attempt_to_out
 from server.api.schemas import AnswerBody
-from server.core.errors import AppError, ERROR_CODES, success_response
 from server.core.enums import AttemptStatus, ChallengeStatus, UserRole
-from server.models.entities import Attempt, AttemptAnswer, Challenge, Question, QuestionOption, Subject
+from server.core.errors import ERROR_CODES, AppError, success_response
+from server.models.entities import (
+    Attempt,
+    AttemptAnswer,
+    Challenge,
+    Question,
+    Subject,
+)
 from server.services.domain import AttemptService, MembershipService
 
 router = APIRouter(tags=["attempts"])
@@ -21,9 +27,7 @@ Student = Annotated[CurrentUser, require_roles(UserRole.STUDENT)]
 @router.post("/challenges/{challenge_id}/attempts")
 async def start_attempt(challenge_id: str, user: Student, db: DbSession):
     result = await db.execute(
-        select(Challenge)
-        .where(Challenge.id == challenge_id)
-        .options(selectinload(Challenge.topic))
+        select(Challenge).where(Challenge.id == challenge_id).options(selectinload(Challenge.topic))
     )
     challenge = result.scalar_one_or_none()
     if challenge is None:

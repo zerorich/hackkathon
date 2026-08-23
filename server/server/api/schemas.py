@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class APIModel(BaseModel):
@@ -72,29 +72,50 @@ class TopicCreateBody(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
     source_context: str | None = None
-    difficulty: str = "MEDIUM"
+    difficulty: Literal["EASY", "MEDIUM", "HARD"] = "MEDIUM"
 
 
 class TopicUpdateBody(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     source_context: str | None = None
-    difficulty: str | None = None
+    difficulty: Literal["EASY", "MEDIUM", "HARD"] | None = None
 
 
 class ChallengeGenerateBody(BaseModel):
-    difficulty: str | None = None
+    difficulty: Literal["EASY", "MEDIUM", "HARD"] | None = None
     question_count: int | None = Field(default=None, ge=5, le=10)
+
+
+class ManualOptionBody(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    is_correct: bool = False
+
+
+class ManualQuestionBody(BaseModel):
+    prompt: str = Field(min_length=1, max_length=10000)
+    type: Literal["SINGLE_CHOICE", "TRUE_FALSE"] = "SINGLE_CHOICE"
+    explanation: str | None = Field(default=None, max_length=10000)
+    points: int = Field(default=1, ge=1, le=100)
+    options: list[ManualOptionBody] = Field(min_length=2, max_length=10)
 
 
 class ChallengeManualBody(BaseModel):
     title: str = Field(min_length=1, max_length=255)
-    difficulty: str = "MEDIUM"
-    questions: list[dict[str, Any]]
+    difficulty: Literal["EASY", "MEDIUM", "HARD"] = "MEDIUM"
+    questions: list[ManualQuestionBody] = Field(min_length=1, max_length=50)
 
 
 class ChallengeStatusUpdateBody(BaseModel):
-    status: str
+    status: Literal["READY", "ARCHIVED"]
+
+
+class UserStatusUpdateBody(BaseModel):
+    status: Literal["ACTIVE", "BLOCKED"]
+
+
+class AdminChallengeStatusUpdateBody(BaseModel):
+    status: Literal["READY", "ARCHIVED"]
 
 
 class AnswerBody(BaseModel):

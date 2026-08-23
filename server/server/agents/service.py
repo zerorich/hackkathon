@@ -10,7 +10,7 @@ from server.agents.models import (
     GenerationMode,
     OrchestratorRun,
 )
-from server.agents.orchestrator import ChallengeOrchestrator, DEFAULT_MAX_CONCURRENCY
+from server.agents.orchestrator import DEFAULT_MAX_CONCURRENCY, ChallengeOrchestrator
 from server.agents.schemas import ChallengeGenerationRequest, Difficulty, GeneratedChallenge
 
 

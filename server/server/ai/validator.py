@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from server.core.enums import QuestionType
-from server.core.errors import AppError, ERROR_CODES
+from server.core.errors import ERROR_CODES, AppError
 
 
 def _extract_json(text: str) -> dict[str, Any]:

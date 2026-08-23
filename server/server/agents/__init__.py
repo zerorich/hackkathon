@@ -11,7 +11,7 @@ from server.agents.models import (
     OrchestratorRun,
     OrchestratorStatus,
 )
-from server.agents.orchestrator import ChallengeOrchestrator, DEFAULT_MAX_CONCURRENCY
+from server.agents.orchestrator import DEFAULT_MAX_CONCURRENCY, ChallengeOrchestrator
 from server.agents.schemas import (
     ChallengeGenerationRequest,
     Difficulty,
@@ -28,6 +28,7 @@ from server.agents.service import (
 )
 
 __all__ = [
+    "DEFAULT_MAX_CONCURRENCY",
     "AgentGenerationError",
     "AgentResult",
     "AgentRole",
@@ -36,7 +37,6 @@ __all__ = [
     "ChallengeGenerationRequest",
     "ChallengeGenerationResult",
     "ChallengeOrchestrator",
-    "DEFAULT_MAX_CONCURRENCY",
     "Difficulty",
     "GeneratedChallenge",
     "GeneratedOption",

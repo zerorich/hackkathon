@@ -3,10 +3,9 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Header
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.core.errors import AppError, ERROR_CODES
+from server.core.errors import ERROR_CODES, AppError
 from server.core.security import decode_access_token
 from server.db.session import get_session as get_db
 from server.models.entities import User

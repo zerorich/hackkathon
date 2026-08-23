@@ -7,7 +7,7 @@ import pytest
 
 from server.ai.client import AgentRouterClient
 from server.ai.fixtures import resolve_fixture_key
-from server.core.errors import AppError, ERROR_CODES
+from server.core.errors import AppError
 from server.core.settings import Settings
 
 

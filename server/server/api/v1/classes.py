@@ -7,8 +7,8 @@ from sqlalchemy import select
 
 from server.api.deps import CurrentUser, DbSession, require_roles
 from server.api.schemas import ClassCreateBody, ClassJoinBody
-from server.core.errors import success_response
 from server.core.enums import MembershipRole, MembershipStatus, UserRole
+from server.core.errors import success_response
 from server.models.entities import ClassMembership, SchoolClass
 from server.services.domain import MembershipService
 
@@ -21,7 +21,8 @@ def _can_see_invite_code(user: CurrentUser) -> bool:
     return user.role in (UserRole.TEACHER, UserRole.ADMIN)
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def list_classes(user: CurrentUser, db: DbSession):
     result = await db.execute(
         select(SchoolClass)
@@ -47,7 +48,8 @@ async def list_classes(user: CurrentUser, db: DbSession):
     )
 
 
-@router.post("/")
+@router.post("")
+@router.post("/", include_in_schema=False)
 async def create_class(body: ClassCreateBody, user: Teacher, db: DbSession):
     school_class = SchoolClass(
         name=body.name,
@@ -70,7 +72,9 @@ async def create_class(body: ClassCreateBody, user: Teacher, db: DbSession):
             "id": school_class.id,
             "name": school_class.name,
             "grade": school_class.grade,
+            "description": school_class.description,
             "invite_code": school_class.invite_code,
+            "status": school_class.status,
         }
     )
 
@@ -95,7 +99,15 @@ async def get_class(class_id: str, user: CurrentUser, db: DbSession):
 async def join_class(body: ClassJoinBody, user: Student, db: DbSession):
     svc = MembershipService(db)
     school_class = await svc.join_class(user, body.invite_code)
-    return success_response({"class_id": school_class.id, "name": school_class.name})
+    return success_response(
+        {
+            "class_id": school_class.id,
+            "name": school_class.name,
+            "grade": school_class.grade,
+            "description": school_class.description,
+            "status": school_class.status,
+        }
+    )
 
 
 @router.get("/{class_id}/members")

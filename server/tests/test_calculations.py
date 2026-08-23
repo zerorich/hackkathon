@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import pytest
-
+from server.core.enums import MasteryCategory
 from server.services.calculations import (
-    calculate_accuracy,
+    DuelParticipantResult,
     calculate_attempt_score,
     calculate_attempt_xp,
     calculate_duel_bonus,
@@ -11,9 +10,7 @@ from server.services.calculations import (
     calculate_streak,
     calculate_topic_mastery,
     resolve_duel_winner,
-    DuelParticipantResult,
 )
-from server.core.enums import MasteryCategory
 
 
 def test_calculate_attempt_score():
@@ -28,9 +25,24 @@ def test_calculate_attempt_xp_perfect():
 def test_calculate_streak():
     from datetime import date
 
-    assert calculate_streak(current_streak=3, last_activity_date=date(2026, 1, 1), activity_date=date(2026, 1, 1)) == 3
-    assert calculate_streak(current_streak=3, last_activity_date=date(2026, 1, 1), activity_date=date(2026, 1, 2)) == 4
-    assert calculate_streak(current_streak=5, last_activity_date=date(2026, 1, 1), activity_date=date(2026, 1, 3)) == 1
+    assert (
+        calculate_streak(
+            current_streak=3, last_activity_date=date(2026, 1, 1), activity_date=date(2026, 1, 1)
+        )
+        == 3
+    )
+    assert (
+        calculate_streak(
+            current_streak=3, last_activity_date=date(2026, 1, 1), activity_date=date(2026, 1, 2)
+        )
+        == 4
+    )
+    assert (
+        calculate_streak(
+            current_streak=5, last_activity_date=date(2026, 1, 1), activity_date=date(2026, 1, 3)
+        )
+        == 1
+    )
 
 
 def test_resolve_duel_winner_by_score():

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from fastapi import APIRouter, Response, status
 from sqlalchemy import text
 
-from fastapi import APIRouter
-
+from server.core.cache import get_cache
 from server.core.errors import success_response
 from server.core.settings import get_settings
 from server.db.session import get_engine
@@ -25,21 +25,23 @@ async def health():
 
 
 @router.get("/ready")
-async def ready():
+async def ready(response: Response):
     checks: dict[str, str] = {"api": "ok"}
 
     try:
         async with get_engine().connect() as conn:
             await conn.execute(text("SELECT 1"))
         checks["database"] = "ok"
-    except Exception:
+    except Exception:  # noqa: BLE001 -- readiness must report any dependency failure
         checks["database"] = "error"
-        return success_response({"status": "not_ready", "checks": checks})
 
     try:
-        get_orchestrator()
-        checks["orchestrator"] = "ok"
-    except Exception:
-        checks["orchestrator"] = "error"
+        checks["redis"] = "ok" if await get_cache().ping() else "error"
+    except Exception:  # noqa: BLE001 -- readiness must report any dependency failure
+        checks["redis"] = "error"
 
-    return success_response({"status": "ready", "checks": checks})
+    checks["worker"] = "ok" if get_orchestrator().is_running else "error"
+    ready_status = all(value == "ok" for value in checks.values())
+    if not ready_status:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return success_response({"status": "ready" if ready_status else "not_ready", "checks": checks})

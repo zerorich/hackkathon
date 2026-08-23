@@ -4,17 +4,23 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from server.api.deps import CurrentUser, DbSession, require_roles
 from server.core.cache import get_cache
-from server.core.errors import AppError, ERROR_CODES, success_response
 from server.core.enums import AttemptStatus, ChallengeStatus, DuelStatus, UserRole
+from server.core.errors import ERROR_CODES, AppError, success_response
 from server.core.settings import get_settings
-from server.models.entities import Attempt, Challenge, Duel, Subject, Topic, User, duel_expires_at
+from server.models.entities import (
+    Attempt,
+    Challenge,
+    Duel,
+    StudentStats,
+    TopicProgress,
+    User,
+    duel_expires_at,
+)
 from server.services.calculations import calculate_leaderboard_rank_data, level_progress
 from server.services.domain import MembershipService
-from server.models.entities import StudentStats, TopicProgress
 
 router = APIRouter(tags=["duels-me-leaderboard"])
 Student = Annotated[CurrentUser, require_roles(UserRole.STUDENT)]
@@ -61,16 +67,16 @@ async def get_duel_by_code(share_code: str, user: CurrentUser, db: DbSession):
 
 @router.post("/duels/code/{share_code}/accept")
 async def accept_duel(share_code: str, user: Student, db: DbSession):
-    result = await db.execute(
-        select(Duel).where(Duel.share_code == share_code).with_for_update()
-    )
+    result = await db.execute(select(Duel).where(Duel.share_code == share_code).with_for_update())
     duel = result.scalar_one_or_none()
     if duel is None:
         raise AppError(ERROR_CODES.DUEL_NOT_FOUND, "Duel not found", status_code=404)
     if duel.creator_id == user.id:
         raise AppError(ERROR_CODES.CANNOT_DUEL_SELF, "Cannot duel yourself", status_code=409)
     if duel.status == DuelStatus.COMPLETED:
-        raise AppError(ERROR_CODES.DUEL_ALREADY_COMPLETED, "Duel already completed", status_code=409)
+        raise AppError(
+            ERROR_CODES.DUEL_ALREADY_COMPLETED, "Duel already completed", status_code=409
+        )
     from server.models.entities import utcnow
 
     if duel.expires_at < utcnow():
@@ -122,9 +128,7 @@ async def get_duel(duel_id: str, user: CurrentUser, db: DbSession):
 @router.get("/me/duels")
 async def my_duels(user: Student, db: DbSession):
     result = await db.execute(
-        select(Duel).where(
-            (Duel.creator_id == user.id) | (Duel.opponent_id == user.id)
-        )
+        select(Duel).where((Duel.creator_id == user.id) | (Duel.opponent_id == user.id))
     )
     return success_response([_duel_dict(d) for d in result.scalars().all()])
 
@@ -227,10 +231,7 @@ async def leaderboard(
         .join(User, User.id == StudentStats.user_id)
         .where(StudentStats.class_id == class_id)
     )
-    rows = [
-        (u.id, u.display_name, s.total_xp, s.level, s.streak)
-        for s, u in result.all()
-    ]
+    rows = [(u.id, u.display_name, s.total_xp, s.level, s.streak) for s, u in result.all()]
     entries = calculate_leaderboard_rank_data(rows)
     payload = {
         "period": period,

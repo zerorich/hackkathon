@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 
 import pytest
 from httpx import AsyncClient
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from server.core.cache import get_cache
 from server.core.enums import UserRole, UserStatus
 from server.core.security import hash_otp, hash_token
+from server.core.settings import Settings
 from server.models.entities import OtpChallenge, RefreshSession, User, utcnow
+from server.services.domain import AuthService
 
 
 async def _verify(client: AsyncClient, identifier: str) -> dict:
@@ -162,3 +166,121 @@ async def test_logout_revokes_refresh_session(client: AsyncClient):
     resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "SESSION_REVOKED"
+
+
+@pytest.mark.asyncio
+async def test_invalid_otp_limit_survives_request_rollbacks(client: AsyncClient):
+    identifier = "rate-limit@demo.local"
+    await client.post("/api/v1/auth/otp/request", json={"identifier": identifier})
+
+    for _ in range(5):
+        response = await client.post(
+            "/api/v1/auth/otp/verify",
+            json={"identifier": identifier, "code": "000000"},
+        )
+        assert response.status_code == 401
+
+    response = await client.post(
+        "/api/v1/auth/otp/verify",
+        json={"identifier": identifier, "code": "123456"},
+    )
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "OTP_TOO_MANY_ATTEMPTS"
+    assert await get_cache().get(f"otp:verify:{identifier}") == 6
+
+
+@pytest.mark.asyncio
+async def test_non_demo_otp_is_random_and_demo_code_cannot_authenticate(
+    session_factory: async_sessionmaker[AsyncSession], monkeypatch
+):
+    delivered: list[tuple[str, str]] = []
+
+    async def capture_delivery(self, identifier: str, code: str) -> None:
+        delivered.append((identifier, code))
+
+    monkeypatch.setattr(AuthService, "_deliver_otp", capture_delivery)
+    monkeypatch.setattr("server.services.domain.secrets.randbelow", lambda _limit: 654321)
+    settings = Settings(otp_demo_mode=False, otp_delivery_webhook_url="https://otp.invalid")
+
+    async with session_factory() as db:
+        service = AuthService(db, settings=settings)
+        response = await service.request_otp("REAL@EXAMPLE.COM")
+        assert response == {"sent": True, "demo_code": None}
+        assert delivered == [("real@example.com", "654321")]
+
+        result = await db.execute(
+            select(OtpChallenge).where(OtpChallenge.identifier == "real@example.com")
+        )
+        challenge = result.scalar_one()
+        assert challenge.code_hash == hash_otp("654321")
+        assert challenge.code_hash != hash_otp(settings.otp_demo_code)
+
+
+@pytest.mark.asyncio
+async def test_teacher_like_identifier_registers_as_student(client: AsyncClient):
+    data = await _verify(client, "teacher-attacker@example.com")
+    assert data["user"]["role"] == UserRole.STUDENT
+
+
+@pytest.mark.asyncio
+async def test_concurrent_refresh_allows_only_one_rotation(client: AsyncClient):
+    data = await _verify(client, "concurrent-refresh@demo.local")
+    refresh_token = data["refresh_token"]
+
+    first, second = await asyncio.gather(
+        client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token}),
+        client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token}),
+    )
+    assert sorted((first.status_code, second.status_code)) == [200, 401]
+    rejected = first if first.status_code == 401 else second
+    assert rejected.json()["error"]["code"] == "REFRESH_REUSED"
+
+
+def test_production_rejects_known_jwt_secret():
+    with pytest.raises(ValidationError, match="JWT_SECRET"):
+        Settings(
+            app_env="production",
+            database_url="postgresql+asyncpg://db/app",
+            jwt_secret="dev-secret-change-in-production",
+            otp_demo_mode=False,
+            otp_delivery_webhook_url="https://otp.example.test/send",
+            agentrouter_api_key="real-agent-key",
+        )
+
+
+def test_production_rejects_demo_otp_mode():
+    with pytest.raises(ValidationError, match="OTP_DEMO_MODE"):
+        Settings(
+            app_env="production",
+            database_url="postgresql+asyncpg://db/app",
+            jwt_secret="a-unique-production-secret-at-least-32-chars",
+            otp_demo_mode=True,
+            otp_delivery_webhook_url="https://otp.example.test/send",
+            agentrouter_api_key="real-agent-key",
+        )
+
+
+@pytest.mark.parametrize(
+    ("override", "expected_error"),
+    [
+        ({"jwt_secret": "replace-with-a-unique-secret-of-at-least-32-characters"}, "JWT_SECRET"),
+        (
+            {"otp_delivery_webhook_url": "https://your-otp-provider.example/send"},
+            "OTP_DELIVERY_WEBHOOK_URL",
+        ),
+        ({"agentrouter_api_key": "replace-with-real-provider-key"}, "AGENTROUTER_API_KEY"),
+    ],
+)
+def test_production_rejects_template_placeholders(override, expected_error):
+    values = {
+        "app_env": "production",
+        "database_url": "postgresql+asyncpg://user:pass@db/app",
+        "redis_url": "redis://redis:6379/0",
+        "jwt_secret": "a-unique-production-secret-at-least-32-chars",
+        "otp_demo_mode": False,
+        "otp_delivery_webhook_url": "https://otp.example.test/send",
+        "agentrouter_api_key": "real-provider-key",
+    }
+    values.update(override)
+    with pytest.raises(ValidationError, match=expected_error):
+        Settings(**values)

@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+import secrets
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 
+import httpx
 from sqlalchemy import and_, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,19 +16,16 @@ from server.core.cache import get_cache
 from server.core.enums import (
     ActivityEventType,
     AttemptStatus,
-    ChallengeOrigin,
     ChallengeStatus,
-    ChallengeType,
     ClassStatus,
     DuelStatus,
-    EntityStatus,
     MembershipRole,
     MembershipStatus,
     UserRole,
     UserStatus,
     XpSourceType,
 )
-from server.core.errors import AppError, ERROR_CODES
+from server.core.errors import ERROR_CODES, AppError
 from server.core.security import (
     create_access_token,
     generate_refresh_token,
@@ -37,24 +38,18 @@ from server.core.settings import Settings, get_settings
 from server.db.concurrency import advisory_lock
 from server.models.entities import (
     ActivityEvent,
-    AiGenerationJob,
     Attempt,
-    AttemptAnswer,
     Challenge,
     ClassMembership,
     Duel,
     OtpChallenge,
     Question,
-    QuestionOption,
     RefreshSession,
     SchoolClass,
     StudentStats,
-    Subject,
-    Topic,
     TopicProgress,
     User,
     XpLedger,
-    duel_expires_at,
     new_uuid,
     utcnow,
 )
@@ -62,25 +57,41 @@ from server.services.calculations import (
     calculate_accuracy,
     calculate_attempt_score,
     calculate_attempt_xp,
-    calculate_class_analytics,
     calculate_duel_bonus,
     calculate_leaderboard_rank_data,
     calculate_level,
     calculate_streak,
     calculate_topic_mastery,
-    level_progress,
     resolve_duel_winner,
     to_local_date,
 )
-from server.services.orchestrator import get_orchestrator
 
-_finish_locks: dict[str, asyncio.Lock] = {}
+_refresh_locks: dict[str, tuple[asyncio.Lock, int]] = {}
 
 
-def _finish_lock(attempt_id: str) -> asyncio.Lock:
-    if attempt_id not in _finish_locks:
-        _finish_locks[attempt_id] = asyncio.Lock()
-    return _finish_locks[attempt_id]
+@asynccontextmanager
+async def _transaction_lock(db: AsyncSession, key: str):
+    """Hold a cross-worker PostgreSQL lock for the surrounding transaction."""
+    await advisory_lock(db, key)
+    yield
+
+
+@asynccontextmanager
+async def _refresh_lock(token_hash: str):
+    """Serialize refresh rotation in-process (PostgreSQL locks cover other workers)."""
+    lock, users = _refresh_locks.get(token_hash, (asyncio.Lock(), 0))
+    _refresh_locks[token_hash] = (lock, users + 1)
+    try:
+        async with lock:
+            yield
+    finally:
+        current = _refresh_locks.get(token_hash)
+        if current is not None and current[0] is lock:
+            remaining = current[1] - 1
+            if remaining == 0:
+                _refresh_locks.pop(token_hash, None)
+            else:
+                _refresh_locks[token_hash] = (lock, remaining)
 
 
 class AuthService:
@@ -90,6 +101,7 @@ class AuthService:
         self.cache = get_cache()
 
     async def request_otp(self, identifier: str) -> dict:
+        identifier = identifier.strip().lower()
         cache_key = f"otp:cooldown:{identifier}"
         if await self.cache.get(cache_key):
             raise AppError(
@@ -103,13 +115,23 @@ class AuthService:
         if existing is not None and existing.status == UserStatus.BLOCKED:
             raise AppError(ERROR_CODES.USER_BLOCKED, "User is blocked", status_code=403)
 
-        code = self.settings.otp_demo_code if self.settings.otp_demo_mode else "123456"
+        if self.settings.otp_demo_mode:
+            code = self.settings.otp_demo_code
+        else:
+            # Never let the documented demo credential authenticate in real mode,
+            # even in the one-in-a-million case where the random draw matches it.
+            code = self.settings.otp_demo_code
+            while code == self.settings.otp_demo_code:
+                code = f"{secrets.randbelow(1_000_000):06d}"
         challenge = OtpChallenge(
             identifier=identifier,
             code_hash=hash_otp(code),
             expires_at=utcnow() + timedelta(minutes=self.settings.otp_ttl_minutes),
         )
         self.db.add(challenge)
+        await self.db.flush()
+        if not self.settings.otp_demo_mode:
+            await self._deliver_otp(identifier, code)
         await self.cache.set(
             cache_key,
             True,
@@ -118,6 +140,16 @@ class AuthService:
         return {"sent": True, "demo_code": code if self.settings.otp_demo_mode else None}
 
     async def verify_otp(self, identifier: str, code: str) -> dict:
+        identifier = identifier.strip().lower()
+        verify_key = f"otp:verify:{identifier}"
+        verify_attempts = await self.cache.incr(
+            verify_key,
+            ttl=self.settings.otp_ttl_minutes * 60,
+        )
+        if verify_attempts > self.settings.otp_max_verify_attempts:
+            raise AppError(ERROR_CODES.OTP_TOO_MANY_ATTEMPTS, "Too many attempts", status_code=429)
+
+        await advisory_lock(self.db, f"otp:verify:{identifier}")
         result = await self.db.execute(
             select(OtpChallenge)
             .where(
@@ -126,6 +158,7 @@ class AuthService:
             )
             .order_by(OtpChallenge.created_at.desc())
             .limit(1)
+            .with_for_update()
         )
         challenge = result.scalar_one_or_none()
         if challenge is None:
@@ -148,13 +181,19 @@ class AuthService:
             raise AppError(ERROR_CODES.USER_BLOCKED, "User is blocked", status_code=403)
 
         tokens = await self._issue_tokens(user)
+        await self.cache.delete(verify_key)
         tokens["is_new_user"] = is_new_user
         return tokens
 
     async def refresh(self, refresh_token: str) -> dict:
         token_hash = hash_token(refresh_token)
+        async with _refresh_lock(token_hash):
+            return await self._refresh_locked(token_hash)
+
+    async def _refresh_locked(self, token_hash: str) -> dict:
+        await advisory_lock(self.db, f"refresh:{token_hash}")
         result = await self.db.execute(
-            select(RefreshSession).where(RefreshSession.token_hash == token_hash)
+            select(RefreshSession).where(RefreshSession.token_hash == token_hash).with_for_update()
         )
         session = result.scalar_one_or_none()
         if session is None:
@@ -188,6 +227,11 @@ class AuthService:
         self.db.add(new_session)
         await self.db.flush()
         session.replaced_by_id = new_session.id
+
+        # Commit before releasing the in-process lock. Without this, a concurrent
+        # SQLite/single-worker request can read the old token before FastAPI closes
+        # and commits this dependency session.
+        await self.db.commit()
 
         access = create_access_token(user_id=user.id, role=user.role, settings=self.settings)
         return {
@@ -226,7 +270,13 @@ class AuthService:
         result = await self.db.execute(select(User).where(User.identifier == identifier))
         user = result.scalar_one_or_none()
         if user is None:
-            role = UserRole.TEACHER if identifier.startswith("teacher@") else UserRole.STUDENT
+            role = UserRole.STUDENT
+            if self.settings.is_development and self.settings.otp_demo_mode:
+                demo_roles = {
+                    "teacher@demo.local": UserRole.TEACHER,
+                    "admin@demo.local": UserRole.ADMIN,
+                }
+                role = demo_roles.get(identifier, UserRole.STUDENT)
             user = User(
                 identifier=identifier,
                 display_name=identifier.split("@")[0],
@@ -266,6 +316,35 @@ class AuthService:
             "status": user.status,
             "onboarding_completed": user.onboarding_completed,
         }
+
+    @staticmethod
+    def public_user_dict(user: User) -> dict:
+        return {
+            "id": user.id,
+            "display_name": user.display_name,
+            "avatar_url": user.avatar_url,
+        }
+
+    async def _deliver_otp(self, identifier: str, code: str) -> None:
+        url = self.settings.otp_delivery_webhook_url
+        if not url:
+            raise AppError(
+                ERROR_CODES.INTERNAL_ERROR,
+                "OTP delivery is not configured",
+                status_code=503,
+            )
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.settings.http_client_timeout_seconds
+            ) as client:
+                response = await client.post(url, json={"identifier": identifier, "code": code})
+                response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise AppError(
+                ERROR_CODES.INTERNAL_ERROR,
+                "OTP delivery failed",
+                status_code=503,
+            ) from exc
 
 
 class MembershipService:
@@ -319,9 +398,7 @@ class MembershipService:
 
     async def join_class(self, user: User, invite_code: str) -> SchoolClass:
         result = await self.db.execute(
-            select(SchoolClass).where(
-                SchoolClass.invite_code == invite_code.strip().upper()
-            )
+            select(SchoolClass).where(SchoolClass.invite_code == invite_code.strip().upper())
         )
         school_class = result.scalar_one_or_none()
         if school_class is None:
@@ -329,28 +406,42 @@ class MembershipService:
         if school_class.status != ClassStatus.ACTIVE:
             raise AppError(ERROR_CODES.CLASS_ARCHIVED, "Class archived", status_code=410)
 
+        await advisory_lock(self.db, f"class:join:{school_class.id}:{user.id}")
         existing = await self.db.execute(
-            select(ClassMembership).where(
+            select(ClassMembership)
+            .where(
                 ClassMembership.class_id == school_class.id,
                 ClassMembership.user_id == user.id,
             )
+            .with_for_update()
         )
         membership = existing.scalar_one_or_none()
         if membership is not None:
             if membership.status == MembershipStatus.ACTIVE:
-                raise AppError(ERROR_CODES.ALREADY_CLASS_MEMBER, "Already a member", status_code=409)
+                raise AppError(
+                    ERROR_CODES.ALREADY_CLASS_MEMBER, "Already a member", status_code=409
+                )
             membership.status = MembershipStatus.ACTIVE
             membership.role = MembershipRole.STUDENT
             await self.db.flush()
             return school_class
 
-        self.db.add(
-            ClassMembership(
-                class_id=school_class.id,
-                user_id=user.id,
-                role=MembershipRole.STUDENT,
-            )
-        )
+        try:
+            async with self.db.begin_nested():
+                self.db.add(
+                    ClassMembership(
+                        class_id=school_class.id,
+                        user_id=user.id,
+                        role=MembershipRole.STUDENT,
+                    )
+                )
+                await self.db.flush()
+        except IntegrityError:
+            raise AppError(
+                ERROR_CODES.ALREADY_CLASS_MEMBER,
+                "Already a member",
+                status_code=409,
+            ) from None
         self.db.add(
             ActivityEvent(
                 class_id=school_class.id,
@@ -435,17 +526,19 @@ class AttemptService:
         self.settings = settings or get_settings()
 
     async def finish_attempt(self, user: User, attempt_id: str) -> Attempt:
-        async with _finish_lock(attempt_id):
-            attempt = await self.db.get(
-                Attempt,
-                attempt_id,
-                options=[
+        async with _transaction_lock(self.db, f"attempt:finish:{attempt_id}"):
+            result = await self.db.execute(
+                select(Attempt)
+                .where(Attempt.id == attempt_id)
+                .with_for_update()
+                .options(
                     selectinload(Attempt.answers),
-                    selectinload(Attempt.challenge).selectinload(Challenge.questions).selectinload(
-                        Question.options
-                    ),
-                ],
+                    selectinload(Attempt.challenge)
+                    .selectinload(Challenge.questions)
+                    .selectinload(Question.options),
+                )
             )
+            attempt = result.scalar_one_or_none()
             if attempt is None:
                 raise AppError(ERROR_CODES.ATTEMPT_NOT_FOUND, "Attempt not found", status_code=404)
             if attempt.user_id != user.id:
@@ -477,14 +570,15 @@ class AttemptService:
 
             attempt.status = AttemptStatus.COMPLETED
             attempt.correct_count = correct
+            attempt.incorrect_count = total - correct
             attempt.total_questions = total
             attempt.accuracy_percent = accuracy
             attempt.score = score
             attempt.xp_awarded = xp
             attempt.completed_at = utcnow()
             if attempt.started_at:
-                attempt.duration_seconds = int(
-                    (attempt.completed_at - attempt.started_at).total_seconds()
+                attempt.duration_seconds = max(
+                    0, int((attempt.completed_at - attempt.started_at).total_seconds())
                 )
 
             existing_xp = await self.db.execute(
@@ -539,11 +633,14 @@ class AttemptService:
         total_questions: int = 0,
         skip_attempt_increment: bool = False,
     ) -> None:
+        await advisory_lock(self.db, f"stats:{user_id}:{class_id}")
         result = await self.db.execute(
-            select(StudentStats).where(
+            select(StudentStats)
+            .where(
                 StudentStats.user_id == user_id,
                 StudentStats.class_id == class_id,
             )
+            .with_for_update()
         )
         stats = result.scalar_one_or_none()
         activity_date = to_local_date(completed_at, self.settings.app_timezone)
@@ -590,6 +687,7 @@ class AttemptService:
                 stats.last_attempt_at = completed_at
 
     async def _update_topic_progress(self, user_id: str, topic_id: str, accuracy: float) -> None:
+        await advisory_lock(self.db, f"topic-progress:{user_id}:{topic_id}")
         result = await self.db.execute(
             select(Attempt.accuracy_percent)
             .join(Challenge, Attempt.challenge_id == Challenge.id)
@@ -607,10 +705,12 @@ class AttemptService:
             accuracies.insert(0, accuracy)
         mastery, category = calculate_topic_mastery(accuracies)
         prog_result = await self.db.execute(
-            select(TopicProgress).where(
+            select(TopicProgress)
+            .where(
                 TopicProgress.user_id == user_id,
                 TopicProgress.topic_id == topic_id,
             )
+            .with_for_update()
         )
         progress = prog_result.scalar_one_or_none()
         if progress is None:
@@ -634,14 +734,26 @@ class AttemptService:
             )
         )
         duel = result.scalar_one_or_none()
-        if duel is None or duel.status == DuelStatus.COMPLETED:
+        if duel is None:
+            return
+        await advisory_lock(self.db, f"duel:complete:{duel.id}")
+        locked = await self.db.execute(
+            select(Duel)
+            .where(Duel.id == duel.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        duel = locked.scalar_one()
+        if duel.status == DuelStatus.COMPLETED:
             return
         if duel.status not in (DuelStatus.PENDING, DuelStatus.ACCEPTED):
             return
 
         creator_attempt = await self.db.get(Attempt, duel.creator_attempt_id)
         opponent_attempt = (
-            await self.db.get(Attempt, duel.opponent_attempt_id) if duel.opponent_attempt_id else None
+            await self.db.get(Attempt, duel.opponent_attempt_id)
+            if duel.opponent_attempt_id
+            else None
         )
         if not (
             creator_attempt
@@ -658,13 +770,21 @@ class AttemptService:
                 user_id=duel.creator_id,
                 score=creator_attempt.score or 0,
                 correct_count=creator_attempt.correct_count or 0,
-                duration_seconds=creator_attempt.duration_seconds or 999999,
+                duration_seconds=(
+                    creator_attempt.duration_seconds
+                    if creator_attempt.duration_seconds is not None
+                    else 999999
+                ),
             ),
             DuelParticipantResult(
                 user_id=duel.opponent_id or "",
                 score=opponent_attempt.score or 0,
                 correct_count=opponent_attempt.correct_count or 0,
-                duration_seconds=opponent_attempt.duration_seconds or 999999,
+                duration_seconds=(
+                    opponent_attempt.duration_seconds
+                    if opponent_attempt.duration_seconds is not None
+                    else 999999
+                ),
             ),
         )
 
@@ -677,9 +797,7 @@ class AttemptService:
             duel.result_type = "DRAW"
         else:
             duel.winner_id = winner
-            duel.result_type = (
-                "CHALLENGER_WIN" if winner == duel.creator_id else "OPPONENT_WIN"
-            )
+            duel.result_type = "CHALLENGER_WIN" if winner == duel.creator_id else "OPPONENT_WIN"
 
         if winner != "DRAW":
             bonus = calculate_duel_bonus()
@@ -708,10 +826,12 @@ class AttemptService:
                     skip_attempt_increment=True,
                 )
             stats_result = await self.db.execute(
-                select(StudentStats).where(
+                select(StudentStats)
+                .where(
                     StudentStats.user_id == winner,
                     StudentStats.class_id == duel.class_id,
                 )
+                .with_for_update()
             )
             winner_stats = stats_result.scalar_one_or_none()
             if winner_stats:
@@ -719,11 +839,14 @@ class AttemptService:
 
             loser_id = duel.opponent_id if winner == duel.creator_id else duel.creator_id
             if loser_id:
+                await advisory_lock(self.db, f"stats:{loser_id}:{duel.class_id}")
                 loser_result = await self.db.execute(
-                    select(StudentStats).where(
+                    select(StudentStats)
+                    .where(
                         StudentStats.user_id == loser_id,
                         StudentStats.class_id == duel.class_id,
                     )
+                    .with_for_update()
                 )
                 loser_stats = loser_result.scalar_one_or_none()
                 if loser_stats:
@@ -734,11 +857,14 @@ class AttemptService:
             for participant_id in (duel.creator_id, duel.opponent_id):
                 if not participant_id:
                     continue
+                await advisory_lock(self.db, f"stats:{participant_id}:{duel.class_id}")
                 draw_result = await self.db.execute(
-                    select(StudentStats).where(
+                    select(StudentStats)
+                    .where(
                         StudentStats.user_id == participant_id,
                         StudentStats.class_id == duel.class_id,
                     )
+                    .with_for_update()
                 )
                 participant_stats = draw_result.scalar_one_or_none()
                 if participant_stats:
@@ -770,23 +896,13 @@ class AttemptService:
             )
 
 
-_duel_accept_locks: dict[str, asyncio.Lock] = {}
-
-
-def _duel_lock(share_code: str) -> asyncio.Lock:
-    if share_code not in _duel_accept_locks:
-        _duel_accept_locks[share_code] = asyncio.Lock()
-    return _duel_accept_locks[share_code]
-
-
 class DuelService:
     def __init__(self, db: AsyncSession, settings: Settings | None = None) -> None:
         self.db = db
         self.settings = settings or get_settings()
 
     async def accept_duel(self, user: User, share_code: str) -> tuple[Duel, Attempt, Challenge]:
-        async with _duel_lock(share_code):
-            await advisory_lock(self.db, f"duel:accept:{share_code}")
+        async with _transaction_lock(self.db, f"duel:accept:{share_code}"):
             result = await self.db.execute(
                 select(Duel).where(Duel.share_code == share_code).with_for_update()
             )
@@ -794,7 +910,9 @@ class DuelService:
             if duel is None:
                 raise AppError(ERROR_CODES.DUEL_NOT_FOUND, "Duel not found", status_code=404)
             if duel.creator_id == user.id:
-                raise AppError(ERROR_CODES.CANNOT_DUEL_SELF, "Cannot accept own duel", status_code=409)
+                raise AppError(
+                    ERROR_CODES.CANNOT_DUEL_SELF, "Cannot accept own duel", status_code=409
+                )
             if duel.expires_at < utcnow():
                 duel.status = DuelStatus.EXPIRED
                 duel.updated_at = utcnow()
@@ -814,7 +932,9 @@ class DuelService:
                 ],
             )
             if challenge is None or challenge.status != ChallengeStatus.READY:
-                raise AppError(ERROR_CODES.CHALLENGE_NOT_READY, "Challenge not ready", status_code=409)
+                raise AppError(
+                    ERROR_CODES.CHALLENGE_NOT_READY, "Challenge not ready", status_code=409
+                )
 
             await MembershipService(self.db).ensure_member(user.id, duel.class_id)
 
@@ -849,71 +969,85 @@ class LeaderboardService:
     ) -> dict:
         await MembershipService(self.db).ensure_member(user.id, class_id)
         cache_key = f"leaderboard:{class_id}:{period}"
-        cached = await self.cache.get(cache_key)
-        if cached:
-            return cached
-
-        since = self._week_start() if period == "week" else None
-        stats_by_user: dict[str, StudentStats] = {}
-        users_by_id: dict[str, User] = {}
-        result = await self.db.execute(
-            select(StudentStats, User)
-            .join(User, User.id == StudentStats.user_id)
-            .where(StudentStats.class_id == class_id)
-        )
-        rows: list[tuple[str, str, int, int, int, int]] = []
-        for stats, member in result.all():
-            stats_by_user[stats.user_id] = stats
-            users_by_id[stats.user_id] = member
-            xp = stats.total_xp
+        base_entries = await self.cache.get(cache_key)
+        if base_entries is None:
+            since = self._week_start() if period == "week" else None
+            period_xp = None
             if since is not None:
-                xp_result = await self.db.execute(
-                    select(func.coalesce(func.sum(XpLedger.amount), 0)).where(
-                        XpLedger.user_id == stats.user_id,
-                        XpLedger.class_id == class_id,
-                        XpLedger.created_at >= since,
+                period_xp = (
+                    select(
+                        XpLedger.user_id.label("user_id"),
+                        func.coalesce(func.sum(XpLedger.amount), 0).label("xp"),
+                    )
+                    .where(XpLedger.class_id == class_id, XpLedger.created_at >= since)
+                    .group_by(XpLedger.user_id)
+                    .subquery()
+                )
+                query = (
+                    select(StudentStats, User, func.coalesce(period_xp.c.xp, 0))
+                    .join(User, User.id == StudentStats.user_id)
+                    .outerjoin(period_xp, period_xp.c.user_id == StudentStats.user_id)
+                    .where(StudentStats.class_id == class_id)
+                )
+            else:
+                query = (
+                    select(StudentStats, User, StudentStats.total_xp)
+                    .join(User, User.id == StudentStats.user_id)
+                    .where(StudentStats.class_id == class_id)
+                )
+
+            result = await self.db.execute(query)
+            source: dict[str, tuple[StudentStats, User, int]] = {}
+            rank_rows: list[tuple[str, str, int, int, int, int]] = []
+            for stats, member, ranked_xp in result.all():
+                xp = int(ranked_xp or 0)
+                source[stats.user_id] = (stats, member, xp)
+                rank_rows.append(
+                    (
+                        stats.user_id,
+                        member.display_name,
+                        xp,
+                        stats.level,
+                        stats.streak,
+                        stats.attempts_completed,
                     )
                 )
-                xp = int(xp_result.scalar_one())
-            rows.append(
-                (
-                    stats.user_id,
-                    member.display_name,
-                    xp,
-                    stats.level,
-                    stats.streak,
-                    stats.attempts_completed,
+            ranked = calculate_leaderboard_rank_data(rank_rows)
+            base_entries = []
+            for item in ranked:
+                stats, member, xp = source[item.user_id]
+                base_entries.append(
+                    {
+                        "rank": item.rank,
+                        "user": AuthService.public_user_dict(member),
+                        "total_xp": stats.total_xp,
+                        "period_xp": xp if since is not None else None,
+                        "completed_challenges": stats.attempts_completed,
+                        "current_streak": stats.streak,
+                    }
                 )
+            await self.cache.set(
+                cache_key,
+                base_entries,
+                ttl=self.settings.redis_leaderboard_ttl_seconds,
             )
 
-        ranked = calculate_leaderboard_rank_data(rows)
         current_rank = next(
-            (item.rank for item in ranked if item.user_id == user.id),
+            (entry["rank"] for entry in base_entries if entry["user"]["id"] == user.id),
             None,
         )
-        entries = []
-        for item in ranked[:limit]:
-            member = users_by_id.get(item.user_id)
-            stats = stats_by_user.get(item.user_id)
-            entries.append(
-                {
-                    "rank": item.rank,
-                    "user": AuthService._user_dict(member) if member else {"id": item.user_id},
-                    "total_xp": item.total_xp if since is None else stats.total_xp if stats else 0,
-                    "period_xp": item.total_xp if since is not None else None,
-                    "completed_challenges": stats.attempts_completed if stats else 0,
-                    "current_streak": item.streak,
-                    "is_current_user": item.user_id == user.id,
-                }
-            )
-
-        payload = {
+        entries = [
+            {
+                **entry,
+                "is_current_user": entry["user"]["id"] == user.id,
+            }
+            for entry in base_entries[:limit]
+        ]
+        return {
             "period": period,
             "entries": entries,
             "current_user_rank": current_rank,
         }
-        await self.cache.set(cache_key, payload, ttl=self.settings.redis_leaderboard_ttl_seconds)
-        return payload
 
     def _week_start(self):
         from datetime import timedelta
@@ -922,6 +1056,4 @@ class LeaderboardService:
         tz = ZoneInfo(self.settings.app_timezone)
         now = utcnow().astimezone(tz)
         start = now - timedelta(days=now.weekday())
-        return start.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(
-            ZoneInfo("UTC")
-        )
+        return start.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(ZoneInfo("UTC"))

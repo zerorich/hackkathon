@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import JWTError, jwt
@@ -30,7 +30,7 @@ def generate_refresh_token() -> str:
 
 def create_access_token(*, user_id: str, role: str, settings: Settings | None = None) -> str:
     settings = settings or get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": user_id,
         "role": role,
@@ -62,4 +62,4 @@ def decode_access_token(token: str, settings: Settings | None = None) -> dict[st
 
 def refresh_expires_at(settings: Settings | None = None) -> datetime:
     settings = settings or get_settings()
-    return datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_ttl_days)
+    return datetime.now(UTC) + timedelta(days=settings.jwt_refresh_ttl_days)

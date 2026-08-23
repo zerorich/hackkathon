@@ -1,4 +1,4 @@
-.PHONY: install dev run test seed lint docker-up docker-down
+.PHONY: install dev run test seed lint migrate migration-check docker-up docker-down
 
 install:
 	pip install -e ".[dev]"
@@ -17,6 +17,12 @@ seed:
 
 lint:
 	ruff check server tests
+
+migrate:
+	alembic upgrade head
+
+migration-check:
+	alembic check
 
 docker-up:
 	docker compose -f ../docker-compose.yml up -d --build
