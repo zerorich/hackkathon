@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from typing import Any, Literal, overload
+from typing import Any, Literal, Self, overload
 
 import httpx
 import structlog
@@ -435,14 +435,17 @@ class AgentRouterClient:
                 return parse_ai_response(raw, expected_count=question_count)
             except AppError as exc:
                 last_error = exc
-                if exc.code == ERROR_CODES.AI_OUTPUT_INVALID and attempt < max_validation_attempts - 1:
+                if (
+                    exc.code == ERROR_CODES.AI_OUTPUT_INVALID
+                    and attempt < max_validation_attempts - 1
+                ):
                     logger.warning("ai_generation_invalid_retry", attempt=attempt + 1)
                     continue
                 break
             except AIClientError as exc:
                 last_error = exc
                 break
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 -- normalize provider/transport failures
                 last_error = exc
                 break
 
@@ -492,7 +495,7 @@ class AgentRouterClient:
     async def aclose(self) -> None:
         await self.close()
 
-    async def __aenter__(self) -> AgentRouterClient:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *args: object) -> None:

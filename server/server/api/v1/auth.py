@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from server.api.deps import CurrentUser, DbSession, require_roles
+from server.api.deps import CurrentUser, DbSession
 from server.api.schemas import OtpRequestBody, OtpVerifyBody, ProfileUpdateBody, RefreshBody
 from server.core.errors import success_response
-from server.core.enums import UserRole
 from server.services.domain import AuthService
 
 router = APIRouter(tags=["auth"])

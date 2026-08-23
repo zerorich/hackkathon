@@ -52,9 +52,7 @@ async def _add_class_member(session_factory, class_id: str, user_id: str) -> Non
 
 
 @pytest.mark.asyncio
-async def test_join_archived_class_returns_class_archived(
-    client: AsyncClient, session_factory
-):
+async def test_join_archived_class_returns_class_archived(client: AsyncClient, session_factory):
     teacher_headers = await auth_headers(client, "teacher@demo.local")
     created = await _create_class(client, teacher_headers)
 

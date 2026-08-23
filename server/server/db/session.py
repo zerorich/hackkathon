@@ -3,7 +3,13 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from server.core.settings import get_settings
 from server.db.base import Base
@@ -24,7 +30,24 @@ def get_engine() -> AsyncEngine:
             echo=settings.app_debug,
             connect_args=connect_args,
             pool_pre_ping=not settings.is_sqlite,
+            **(
+                {}
+                if settings.is_sqlite
+                else {
+                    "pool_size": settings.database_pool_size,
+                    "max_overflow": settings.database_max_overflow,
+                    "pool_timeout": settings.database_pool_timeout_seconds,
+                }
+            ),
         )
+        if settings.is_sqlite:
+
+            @event.listens_for(_engine.sync_engine, "connect")
+            def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
+
     return _engine
 
 
@@ -38,6 +61,9 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 
 async def init_db() -> None:
+    # Alembic owns non-development schemas; create_all is only a local convenience.
+    if not get_settings().is_development:
+        return
     async with get_engine().begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -63,12 +89,6 @@ async def session_scope() -> AsyncGenerator[AsyncSession, None]:
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with session_scope() as session:
         yield session
-
-
-def reset_db_state() -> None:
-    global _engine, _session_factory
-    _engine = None
-    _session_factory = None
 
 
 async def close_db() -> None:

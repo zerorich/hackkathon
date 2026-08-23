@@ -1,22 +1,26 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from datetime import timedelta
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from server.ai.client import AgentRouterClient
 from server.core.cache import get_cache
 from server.core.enums import AiJobStatus, ChallengeStatus
-from server.core.errors import AppError, ERROR_CODES
+from server.core.errors import ERROR_CODES, AppError
 from server.core.settings import get_settings
-from server.models.entities import AiGenerationJob, Challenge, Question, QuestionOption, Topic, utcnow
-
-if TYPE_CHECKING:
-    pass
+from server.models.entities import (
+    AiGenerationJob,
+    Challenge,
+    Question,
+    QuestionOption,
+    Topic,
+    utcnow,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -29,9 +33,22 @@ class AiOrchestrator:
     def __init__(self) -> None:
         self._semaphore = asyncio.Semaphore(get_settings().max_concurrent_ai_jobs)
         self._tasks: set[asyncio.Task] = set()
+        self._worker_task: asyncio.Task | None = None
         self._client = AgentRouterClient()
 
+    def start(self, *, session_factory) -> None:
+        if self._worker_task is None or self._worker_task.done():
+            self._worker_task = asyncio.create_task(self._worker_loop(session_factory))
+
+    @property
+    def is_running(self) -> bool:
+        return self._worker_task is not None and not self._worker_task.done()
+
     async def close(self) -> None:
+        if self._worker_task is not None:
+            self._worker_task.cancel()
+            await asyncio.gather(self._worker_task, return_exceptions=True)
+            self._worker_task = None
         for task in list(self._tasks):
             task.cancel()
         if self._tasks:
@@ -43,26 +60,82 @@ class AiOrchestrator:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
+    async def _worker_loop(self, session_factory) -> None:
+        settings = get_settings()
+        while True:
+            try:
+                await self._recover_abandoned_jobs(session_factory)
+                job_ids = await self._claim_pending_jobs(session_factory)
+                for job_id in job_ids:
+                    self.schedule(job_id=job_id, session_factory=session_factory)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # A transient database outage must not permanently kill the worker.
+                logger.exception("ai_worker_poll_failed")
+            await asyncio.sleep(settings.ai_job_poll_interval_seconds)
+
+    async def _claim_pending_jobs(self, session_factory) -> list[str]:
+        available = max(0, get_settings().max_concurrent_ai_jobs - len(self._tasks))
+        if available == 0:
+            return []
+        async with session_factory() as session:
+            result = await session.execute(
+                select(AiGenerationJob)
+                .where(AiGenerationJob.status == AiJobStatus.PENDING)
+                .order_by(AiGenerationJob.created_at)
+                .limit(available)
+                .with_for_update(skip_locked=True)
+            )
+            jobs = result.scalars().all()
+            now = utcnow()
+            for job in jobs:
+                job.status = AiJobStatus.PROCESSING
+                job.started_at = now
+            await session.commit()
+            return [job.id for job in jobs]
+
+    async def _recover_abandoned_jobs(self, session_factory) -> None:
+        cutoff = utcnow() - timedelta(minutes=30)
+        async with session_factory() as session:
+            await session.execute(
+                update(AiGenerationJob)
+                .where(
+                    AiGenerationJob.status == AiJobStatus.PROCESSING,
+                    AiGenerationJob.started_at < cutoff,
+                )
+                .values(status=AiJobStatus.PENDING, started_at=None)
+            )
+            await session.commit()
+
     async def _run_job(self, *, job_id: str, session_factory) -> None:
         user_id: str | None = None
+        terminal_committed = False
         try:
-            async with self._semaphore:
-                async with session_factory() as session:
-                    user_id = await self._process_job(session, job_id)
+            async with self._semaphore, session_factory() as session:
+                job = await session.get(AiGenerationJob, job_id)
+                user_id = job.requested_by_id if job else None
+                user_id = await self._process_job(session, job_id)
+                await session.commit()
+                terminal_committed = True
+        except asyncio.CancelledError:
+            async with session_factory() as session:
+                job = await session.get(AiGenerationJob, job_id)
+                if job is not None and job.status == AiJobStatus.PROCESSING:
+                    job.status = AiJobStatus.PENDING
+                    job.started_at = None
                     await session.commit()
+            raise
+        except Exception:
+            # Keep PROCESSING jobs and their reserved active slot recoverable. The
+            # periodic stale-job recovery will safely return them to the queue.
+            logger.exception("ai_job_worker_failed", job_id=job_id)
         finally:
-            if user_id is not None:
+            if terminal_committed and user_id is not None:
                 await self._release_ai_slot(user_id)
 
     async def _release_ai_slot(self, user_id: str) -> None:
-        cache = get_cache()
-        active_key = f"ai:active:{user_id}"
-        active = await cache.get(active_key) or 0
-        new_val = max(0, int(active) - 1)
-        if new_val == 0:
-            await cache.delete(active_key)
-        else:
-            await cache.set(active_key, new_val, ttl=3600)
+        await get_cache().decr(f"ai:active:{user_id}")
 
     async def _process_job(self, session: AsyncSession, job_id: str) -> str | None:
         job = await session.get(AiGenerationJob, job_id)

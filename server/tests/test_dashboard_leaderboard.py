@@ -23,9 +23,7 @@ def test_leaderboard_sort_by_xp_then_completed():
 
 
 @pytest.mark.asyncio
-async def test_leaderboard_week_uses_xp_ledger(
-    client: AsyncClient, session_factory
-):
+async def test_leaderboard_week_uses_xp_ledger(client: AsyncClient, session_factory):
     teacher_headers = await auth_headers(client, "teacher@demo.local")
     create = await client.post(
         "/api/v1/classes/",

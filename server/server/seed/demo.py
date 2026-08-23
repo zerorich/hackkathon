@@ -59,9 +59,7 @@ async def run_seed(session: AsyncSession | None = None) -> dict:
         session = get_session_factory()()
 
     try:
-        admin = await _get_or_create_user(
-            session, "admin@demo.local", "Demo Admin", UserRole.ADMIN
-        )
+        admin = await _get_or_create_user(session, "admin@demo.local", "Demo Admin", UserRole.ADMIN)
         teacher = await _get_or_create_user(
             session, "teacher@demo.local", "Demo Teacher", UserRole.TEACHER
         )
@@ -81,7 +79,13 @@ async def run_seed(session: AsyncSession | None = None) -> dict:
         for student in students:
             await _ensure_membership(session, school_class.id, student.id, MembershipRole.STUDENT)
 
-        math = await _get_or_create_subject(session, school_class.id, teacher.id, "Math")
+        math = await _get_or_create_subject(
+            session,
+            school_class.id,
+            teacher.id,
+            "Mathematics",
+            aliases=("Math",),
+        )
         english = await _get_or_create_subject(session, school_class.id, teacher.id, "English")
         physics = await _get_or_create_subject(session, school_class.id, teacher.id, "Physics")
 
@@ -90,24 +94,23 @@ async def run_seed(session: AsyncSession | None = None) -> dict:
             "quadratic": await _get_or_create_topic(
                 session, math.id, teacher.id, "Quadratic Equations"
             ),
-            "linear": await _get_or_create_topic(
-                session, math.id, teacher.id, "Linear Functions"
-            ),
+            "linear": await _get_or_create_topic(session, math.id, teacher.id, "Linear Functions"),
             "present_perfect": await _get_or_create_topic(
                 session, english.id, teacher.id, "Present Perfect"
             ),
             "conditionals": await _get_or_create_topic(
                 session, english.id, teacher.id, "Conditionals"
             ),
-            "newton": await _get_or_create_topic(
-                session, physics.id, teacher.id, "Newton's Laws"
-            ),
+            "newton": await _get_or_create_topic(session, physics.id, teacher.id, "Newton's Laws"),
             "energy": await _get_or_create_topic(session, physics.id, teacher.id, "Energy"),
-            "motion": await _get_or_create_topic(session, physics.id, teacher.id, "Motion"),
         }
 
         ready_challenge = await _get_or_create_ready_challenge(
-            session, topics["fractions"], teacher.id, subject_name="Math", topic_name="Fractions"
+            session,
+            topics["fractions"],
+            teacher.id,
+            subject_name="Mathematics",
+            topic_name="Fractions",
         )
 
         if not await _seed_has_attempts(session, school_class.id):
@@ -134,9 +137,7 @@ async def run_seed(session: AsyncSession | None = None) -> dict:
 
 
 async def _seed_has_attempts(session: AsyncSession, class_id: str) -> bool:
-    result = await session.execute(
-        select(Attempt.id).where(Attempt.class_id == class_id).limit(1)
-    )
+    result = await session.execute(select(Attempt.id).where(Attempt.class_id == class_id).limit(1))
     return result.scalar_one_or_none() is not None
 
 
@@ -176,7 +177,7 @@ async def _seed_demo_progress(
         (1, "fractions", 0.6),
         (1, "present_perfect", 0.4),
         (1, "conditionals", 0.2),
-        (2, "motion", 0.8),
+        (2, "quadratic", 0.8),
         (2, "newton", 0.6),
         (2, "energy", 1.0),
         (3, "conditionals", 0.4),
@@ -238,6 +239,11 @@ async def _seed_demo_progress(
                 streak=1,
                 last_activity_date=activity_date,
                 attempts_completed=1,
+                total_correct_answers=attempt.correct_count or 0,
+                total_answers=attempt.total_questions or 0,
+                average_accuracy=attempt.accuracy_percent or 0.0,
+                last_attempt_at=attempt.completed_at,
+                best_streak=1,
             )
             session.add(stats)
             stats_map[student.id] = stats
@@ -251,6 +257,17 @@ async def _seed_demo_progress(
             )
             stats.last_activity_date = activity_date
             stats.attempts_completed += 1
+            stats.total_correct_answers += attempt.correct_count or 0
+            stats.total_answers += attempt.total_questions or 0
+            stats.average_accuracy = (
+                stats.total_correct_answers / stats.total_answers * 100
+                if stats.total_answers
+                else 0.0
+            )
+            stats.last_attempt_at = max(
+                filter(None, (stats.last_attempt_at, attempt.completed_at)), default=None
+            )
+            stats.best_streak = max(stats.best_streak, stats.streak)
 
     for (user_id, topic_id), accuracies in topic_accuracies.items():
         mastery, category = calculate_topic_mastery(accuracies)
@@ -321,6 +338,17 @@ async def _seed_demo_progress(
             duel_stats.total_xp += xp
             duel_stats.level = calculate_level(duel_stats.total_xp)
             duel_stats.attempts_completed += 1
+            duel_stats.total_correct_answers += duel_attempt.correct_count or 0
+            duel_stats.total_answers += duel_attempt.total_questions or 0
+            duel_stats.average_accuracy = (
+                duel_stats.total_correct_answers / duel_stats.total_answers * 100
+                if duel_stats.total_answers
+                else 0.0
+            )
+            duel_stats.last_attempt_at = max(
+                filter(None, (duel_stats.last_attempt_at, duel_attempt.completed_at)),
+                default=None,
+            )
 
     bonus = calculate_duel_bonus()
     xp_balances[creator.id] += bonus
@@ -338,6 +366,7 @@ async def _seed_demo_progress(
     creator_stats.total_xp += bonus
     creator_stats.level = calculate_level(creator_stats.total_xp)
     creator_stats.duels_won += 1
+    stats_map[opponent.id].duels_lost += 1
 
     session.add(
         ActivityEvent(
@@ -377,7 +406,7 @@ async def _seed_demo_progress(
 
 def _subject_for_topic_key(key: str) -> str:
     if key in {"fractions", "quadratic", "linear"}:
-        return "Math"
+        return "Mathematics"
     if key in {"present_perfect", "conditionals"}:
         return "English"
     return "Physics"
@@ -578,13 +607,22 @@ async def _ensure_membership(
 
 
 async def _get_or_create_subject(
-    session: AsyncSession, class_id: str, teacher_id: str, name: str
+    session: AsyncSession,
+    class_id: str,
+    teacher_id: str,
+    name: str,
+    *,
+    aliases: tuple[str, ...] = (),
 ) -> Subject:
     result = await session.execute(
-        select(Subject).where(Subject.class_id == class_id, Subject.name == name)
+        select(Subject).where(
+            Subject.class_id == class_id,
+            Subject.name.in_((name, *aliases)),
+        )
     )
-    subject = result.scalar_one_or_none()
+    subject = result.scalars().first()
     if subject:
+        subject.name = name
         return subject
     subject = Subject(class_id=class_id, name=name, created_by_id=teacher_id)
     session.add(subject)

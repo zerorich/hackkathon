@@ -2,16 +2,23 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from server.api.deps import CurrentUser, DbSession, require_roles
-from server.api.mappers import attempt_finish_stats_out, attempt_result_to_out, attempt_to_out, challenge_detail_to_out
+from server.api.mappers import (
+    attempt_finish_stats_out,
+    attempt_result_to_out,
+    attempt_to_out,
+    challenge_detail_to_out,
+)
 from server.api.schemas import AnswerBody
 from server.core.enums import AttemptStatus, ChallengeStatus, EntityStatus, UserRole
-from server.core.errors import AppError, ERROR_CODES, success_response
+from server.core.errors import ERROR_CODES, AppError, success_response
 from server.core.settings import get_settings
+from server.db.concurrency import advisory_lock
 from server.models.entities import (
     Attempt,
     AttemptAnswer,
@@ -38,9 +45,9 @@ async def _load_attempt(db: DbSession, attempt_id: str) -> Attempt:
             selectinload(Attempt.challenge)
             .selectinload(Challenge.topic)
             .selectinload(Topic.subject),
-            selectinload(Attempt.challenge).selectinload(Challenge.questions).selectinload(
-                Question.options
-            ),
+            selectinload(Attempt.challenge)
+            .selectinload(Challenge.questions)
+            .selectinload(Question.options),
             selectinload(Attempt.answers),
         ],
     )
@@ -95,8 +102,13 @@ async def start_attempt(challenge_id: str, user: Student, db: DbSession):
 @router.get("/attempts/{attempt_id}")
 async def get_attempt(attempt_id: str, user: CurrentUser, db: DbSession):
     attempt = await _load_attempt(db, attempt_id)
-    if attempt.user_id != user.id and user.role not in (UserRole.TEACHER, UserRole.ADMIN):
-        raise AppError(ERROR_CODES.FORBIDDEN, "Not allowed", status_code=403)
+    if attempt.user_id != user.id:
+        if user.role == UserRole.ADMIN:
+            pass
+        elif user.role == UserRole.TEACHER:
+            await MembershipService(db).ensure_class_teacher(user, attempt.class_id)
+        else:
+            raise AppError(ERROR_CODES.FORBIDDEN, "Not allowed", status_code=403)
     include_correct = attempt.status == AttemptStatus.COMPLETED or user.role in (
         UserRole.TEACHER,
         UserRole.ADMIN,
@@ -121,6 +133,9 @@ async def submit_answer(
     db: DbSession,
 ):
     attempt = await _load_attempt(db, attempt_id)
+    await advisory_lock(db, f"attempt:finish:{attempt_id}")
+    await db.execute(select(Attempt).where(Attempt.id == attempt_id).with_for_update())
+    await db.refresh(attempt, attribute_names=["status"])
     if attempt.user_id != user.id:
         raise AppError(ERROR_CODES.FORBIDDEN, "Not your attempt", status_code=403)
     if attempt.status != AttemptStatus.IN_PROGRESS:
@@ -135,20 +150,38 @@ async def submit_answer(
         raise AppError(ERROR_CODES.OPTION_NOT_IN_QUESTION, "Invalid option")
 
     existing = await db.execute(
-        select(AttemptAnswer).where(
+        select(AttemptAnswer)
+        .where(
             AttemptAnswer.attempt_id == attempt.id,
             AttemptAnswer.question_id == question_id,
         )
+        .with_for_update()
     )
     answer = existing.scalar_one_or_none()
     if answer is None:
-        answer = AttemptAnswer(
-            attempt_id=attempt.id,
-            question_id=question_id,
-            selected_option_id=body.selected_option_id,
-            is_correct=option.is_correct,
-        )
-        db.add(answer)
+        try:
+            async with db.begin_nested():
+                db.add(
+                    AttemptAnswer(
+                        attempt_id=attempt.id,
+                        question_id=question_id,
+                        selected_option_id=body.selected_option_id,
+                        is_correct=option.is_correct,
+                    )
+                )
+                await db.flush()
+        except IntegrityError:
+            retry = await db.execute(
+                select(AttemptAnswer)
+                .where(
+                    AttemptAnswer.attempt_id == attempt.id,
+                    AttemptAnswer.question_id == question_id,
+                )
+                .with_for_update()
+            )
+            answer = retry.scalar_one()
+            answer.selected_option_id = body.selected_option_id
+            answer.is_correct = option.is_correct
     else:
         answer.selected_option_id = body.selected_option_id
         answer.is_correct = option.is_correct
@@ -194,7 +227,10 @@ async def create_duel(attempt_id: str, user: Student, db: DbSession):
             status_code=409,
         )
 
-    existing = await db.execute(select(Duel).where(Duel.creator_attempt_id == attempt.id))
+    await advisory_lock(db, f"duel:create:{attempt.id}")
+    existing = await db.execute(
+        select(Duel).where(Duel.creator_attempt_id == attempt.id).with_for_update()
+    )
     if existing.scalar_one_or_none():
         raise AppError(
             ERROR_CODES.DUEL_ALREADY_EXISTS,
@@ -210,8 +246,16 @@ async def create_duel(attempt_id: str, user: Student, db: DbSession):
         creator_id=user.id,
         expires_at=duel_expires_at(settings.duel_expiry_hours),
     )
-    db.add(duel)
-    await db.flush()
+    try:
+        async with db.begin_nested():
+            db.add(duel)
+            await db.flush()
+    except IntegrityError:
+        raise AppError(
+            ERROR_CODES.DUEL_ALREADY_EXISTS,
+            "Duel already exists for this attempt",
+            status_code=409,
+        ) from None
     return success_response(
         {
             "duel_id": duel.id,

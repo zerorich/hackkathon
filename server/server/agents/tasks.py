@@ -3,10 +3,10 @@ from __future__ import annotations
 from uuid import uuid4
 
 from server.agents.memory import AgentMemory, SharedContext
-from server.agents.models import AgentRole, AgentTask, GenerationMode
 from server.agents.merger import ChallengeMerger
+from server.agents.models import AgentRole, AgentTask, GenerationMode
 from server.agents.prompts import default_question_mix
-from server.agents.schemas import ChallengeGenerationRequest, GenerationPlan, QuestionType
+from server.agents.schemas import ChallengeGenerationRequest, GenerationPlan
 
 
 class TaskGraphBuilder:

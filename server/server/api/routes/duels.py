@@ -14,8 +14,8 @@ from server.api.mappers import (
     duel_status_to_api,
 )
 from server.core.enums import DuelStatus, UserRole
-from server.core.errors import AppError, ERROR_CODES, success_response
-from server.models.entities import Attempt, Challenge, Duel, Question, Subject, Topic, User, utcnow
+from server.core.errors import ERROR_CODES, AppError, success_response
+from server.models.entities import Attempt, Challenge, Duel, Question, Topic, User, utcnow
 from server.services.domain import AuthService, DuelService, MembershipService
 
 router = APIRouter(tags=["duels"])
@@ -58,7 +58,7 @@ async def preview_duel(share_code: str, user: CurrentUser, db: DbSession):
         {
             "share_code": duel.share_code,
             "status": duel_status_to_api(duel.status),
-            "challenger": AuthService._user_dict(creator) if creator else None,
+            "challenger": AuthService.public_user_dict(creator) if creator else None,
             "subject_name": subject_name,
             "topic_title": challenge.topic.title if challenge else "",
             "difficulty": challenge.difficulty if challenge else "",
@@ -93,6 +93,8 @@ async def get_duel(duel_id: str, user: CurrentUser, db: DbSession):
             raise AppError(ERROR_CODES.FORBIDDEN, "Not a duel participant", status_code=403)
     else:
         await MembershipService(db).get_class_for_user(user, duel.class_id)
+        if user.role == UserRole.TEACHER:
+            await MembershipService(db).ensure_class_teacher(user, duel.class_id)
 
     creator = await db.get(User, duel.creator_id)
     opponent = await db.get(User, duel.opponent_id) if duel.opponent_id else None
@@ -101,6 +103,7 @@ async def get_duel(duel_id: str, user: CurrentUser, db: DbSession):
         await db.get(Attempt, duel.opponent_attempt_id) if duel.opponent_attempt_id else None
     )
     challenge = await _load_challenge(db, duel.challenge_id)
+    winner = await db.get(User, duel.winner_id) if duel.winner_id else None
 
     return success_response(
         {
@@ -112,14 +115,15 @@ async def get_duel(duel_id: str, user: CurrentUser, db: DbSession):
             if challenge
             else None,
             "challenger": {
-                "user": AuthService._user_dict(creator) if creator else None,
+                "user": AuthService.public_user_dict(creator) if creator else None,
                 "result": attempt_to_out(creator_attempt) if creator_attempt else None,
             },
             "opponent": {
-                "user": AuthService._user_dict(opponent) if opponent else None,
+                "user": AuthService.public_user_dict(opponent) if opponent else None,
                 "result": attempt_to_out(opponent_attempt) if opponent_attempt else None,
             },
             "winner_id": duel.winner_id,
+            "winner": AuthService.public_user_dict(winner) if winner else None,
             "result_type": duel_result_type(duel),
             "expires_at": duel.expires_at,
             "accepted_at": duel.accepted_at,

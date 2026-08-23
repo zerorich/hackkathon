@@ -6,8 +6,9 @@ from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 
 from server.api.deps import CurrentUser, DbSession, require_roles
+from server.api.schemas import AdminChallengeStatusUpdateBody, UserStatusUpdateBody
 from server.core.enums import UserRole
-from server.core.errors import success_response
+from server.core.errors import ERROR_CODES, AppError, success_response
 from server.models.entities import AiGenerationJob, Attempt, Challenge, Duel, SchoolClass, User
 from server.services.domain import AuthService
 
@@ -18,8 +19,12 @@ Admin = Annotated[CurrentUser, require_roles(UserRole.ADMIN)]
 @router.get("/overview")
 async def admin_overview(_user: Admin, db: DbSession):
     users = await db.scalar(select(func.count()).select_from(User))
-    students = await db.scalar(select(func.count()).select_from(User).where(User.role == UserRole.STUDENT))
-    teachers = await db.scalar(select(func.count()).select_from(User).where(User.role == UserRole.TEACHER))
+    students = await db.scalar(
+        select(func.count()).select_from(User).where(User.role == UserRole.STUDENT)
+    )
+    teachers = await db.scalar(
+        select(func.count()).select_from(User).where(User.role == UserRole.TEACHER)
+    )
     classes = await db.scalar(select(func.count()).select_from(SchoolClass))
     attempts = await db.scalar(select(func.count()).select_from(Attempt))
     ai_jobs = await db.scalar(select(func.count()).select_from(AiGenerationJob))
@@ -65,14 +70,15 @@ async def admin_users(
 @router.patch("/users/{target_user_id}/status")
 async def admin_update_user_status(
     target_user_id: str,
-    body: dict,
+    body: UserStatusUpdateBody,
     _user: Admin,
     db: DbSession,
 ):
     user = await db.get(User, target_user_id)
-    if user:
-        user.status = body.get("status", user.status)
-        await db.flush()
+    if user is None:
+        raise AppError(ERROR_CODES.NOT_FOUND, "User not found", status_code=404)
+    user.status = body.status
+    await db.flush()
     return success_response({"success": True})
 
 
@@ -110,14 +116,15 @@ async def admin_challenges(
 @router.patch("/challenges/{challenge_id}/status")
 async def admin_update_challenge_status(
     challenge_id: str,
-    body: dict,
+    body: AdminChallengeStatusUpdateBody,
     _user: Admin,
     db: DbSession,
 ):
     challenge = await db.get(Challenge, challenge_id)
-    if challenge:
-        challenge.status = body.get("status", challenge.status)
-        await db.flush()
+    if challenge is None:
+        raise AppError(ERROR_CODES.CHALLENGE_NOT_FOUND, "Challenge not found", status_code=404)
+    challenge.status = body.status
+    await db.flush()
     return success_response({"success": True})
 
 
@@ -147,13 +154,40 @@ async def admin_ai_jobs(
 
 @router.post("/ai-jobs/{job_id}/retry")
 async def admin_retry_ai_job(job_id: str, _user: Admin, db: DbSession):
-    from server.db.session import get_session_factory
-    from server.services.orchestrator import get_orchestrator
+    from server.core.cache import get_cache
+    from server.core.settings import get_settings
 
-    job = await db.get(AiGenerationJob, job_id)
-    if job:
-        job.status = "PENDING"
-        job.error_message = None
-        await db.flush()
-        get_orchestrator().schedule(job_id=job.id, session_factory=get_session_factory())
+    job = await db.scalar(
+        select(AiGenerationJob).where(AiGenerationJob.id == job_id).with_for_update()
+    )
+    if job is None:
+        raise AppError(ERROR_CODES.NOT_FOUND, "AI job not found", status_code=404)
+    if job.status != "FAILED":
+        raise AppError(
+            ERROR_CODES.CONFLICT,
+            "Only failed AI jobs can be retried",
+            status_code=409,
+        )
+    active_key = f"ai:active:{job.requested_by_id}"
+    acquired = await get_cache().acquire_slot(
+        active_key,
+        limit=get_settings().redis_ai_generation_limit_per_user,
+        ttl=3600,
+    )
+    if not acquired:
+        raise AppError(
+            ERROR_CODES.AI_GENERATION_LIMIT,
+            "Too many active AI generations",
+            status_code=429,
+        )
+    job.status = "PENDING"
+    job.error_message = None
+    job.error_code = None
+    job.started_at = None
+    job.completed_at = None
+    try:
+        await db.commit()
+    except Exception:
+        await get_cache().decr(active_key)
+        raise
     return success_response({"job_id": job_id, "status": "PENDING"})

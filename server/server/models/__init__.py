@@ -1,4 +1,5 @@
 from server.db.base import Base
+from server.models.chat import AiChatConversation, AiChatMessage
 from server.models.entities import (
     ActivityEvent,
     AiGenerationJob,
@@ -27,6 +28,8 @@ from server.models.entities import (
 
 __all__ = [
     "ActivityEvent",
+    "AiChatConversation",
+    "AiChatMessage",
     "AiGenerationJob",
     "Attempt",
     "AttemptAnswer",

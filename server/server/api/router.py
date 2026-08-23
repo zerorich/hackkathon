@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from server.api.routes import (
     admin,
+    ai_chat,
     attempts,
     challenges,
     duels,
@@ -17,6 +18,7 @@ from server.api.v1 import auth, classes, subjects
 api_router = APIRouter()
 
 api_router.include_router(health.router, tags=["health"])
+api_router.include_router(ai_chat.router, prefix="/ai/chat", tags=["ai-chat"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(classes.router, prefix="/classes", tags=["classes"])
 api_router.include_router(subjects.router, tags=["subjects"])

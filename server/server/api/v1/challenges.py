@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from fastapi import APIRouter
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from server.api.deps import CurrentUser, DbSession, require_roles
 from server.api.mappers import challenge_detail_to_out, challenge_to_out
 from server.api.schemas import ChallengeGenerateBody, ChallengeStatusUpdateBody
 from server.core.cache import get_cache
-from server.core.errors import AppError, ERROR_CODES, success_response
 from server.core.enums import (
     AiJobStatus,
     ChallengeOrigin,
@@ -19,6 +18,7 @@ from server.core.enums import (
     EntityStatus,
     UserRole,
 )
+from server.core.errors import ERROR_CODES, AppError, success_response
 from server.core.settings import get_settings
 from server.db.session import get_session_factory
 from server.models.entities import AiGenerationJob, Challenge, Question, Subject, Topic, User
@@ -84,7 +84,9 @@ async def generate_challenge(
     await db.flush()
 
     get_orchestrator().schedule(job_id=job.id, session_factory=get_session_factory())
-    return success_response({"challenge_id": challenge.id, "job_id": job.id, "status": challenge.status})
+    return success_response(
+        {"challenge_id": challenge.id, "job_id": job.id, "status": challenge.status}
+    )
 
 
 @router.get("/challenges/{challenge_id}/status")
@@ -106,9 +108,7 @@ async def challenge_status(challenge_id: str, user: CurrentUser, db: DbSession):
 
 @router.get("/challenges/{challenge_id}")
 async def get_challenge(challenge_id: str, user: CurrentUser, db: DbSession):
-    challenge = await _get_challenge_with_access(
-        db, user, challenge_id, load_questions=True
-    )
+    challenge = await _get_challenge_with_access(db, user, challenge_id, load_questions=True)
     if challenge.status != ChallengeStatus.READY:
         raise AppError(ERROR_CODES.CHALLENGE_NOT_READY, "Challenge not ready", status_code=409)
     include_correct = user.role in (UserRole.TEACHER, UserRole.ADMIN)

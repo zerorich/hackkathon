@@ -660,7 +660,6 @@ def resolve_fixture_key(
     subject_name: str | None = None,
     topic_name: str | None = None,
 ) -> str:
-    haystack = " ".join(filter(None, [subject_name, topic_name])).lower()
     if topic_name:
         topic_lower = topic_name.lower()
         for needle, key in _TOPIC_MATCHERS:
