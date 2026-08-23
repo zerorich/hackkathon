@@ -1,4 +1,4 @@
-# Maktab AI Arena — ТЗ: Javodbek (Student React)
+# Zehn AI — ТЗ: Javodbek (Student React)
 
 **Роль:** отдельное React-приложение для ученика  
 **Стек:** React, Vite (уже в `client/`)  

@@ -1,4 +1,4 @@
-# Maktab AI Arena — ТЗ: Zero (Backend)
+# Zehn AI — ТЗ: Zero (Backend)
 
 **Роль:** единственный backend, source of truth для всего проекта  
 **Стек:** TypeScript, Express 5, Prisma, PostgreSQL, Redis, BullMQ, Zod, JWT + opaque refresh (rotation), OTP, Vitest  

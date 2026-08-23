@@ -1,4 +1,4 @@
-"""Multi-agent challenge generation for Maktab AI Arena."""
+"""Multi-agent challenge generation for Zehn AI."""
 
 from server.agents.errors import AgentGenerationError
 from server.agents.models import (

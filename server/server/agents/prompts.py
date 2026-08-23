@@ -5,7 +5,7 @@ from server.agents.schemas import ChallengeGenerationRequest, QuestionType
 
 def planner_system_prompt() -> str:
     return (
-        "You are the Planner for Maktab AI Arena challenge generation. "
+        "You are the Planner for Zehn AI challenge generation. "
         "Given a school topic, produce a compact generation plan. "
         "Return ONLY valid JSON matching this shape:\n"
         '{"focus_areas":["..."],"question_mix":{"SINGLE_CHOICE":3,"TRUE_FALSE":2},'
@@ -28,7 +28,7 @@ def planner_user_prompt(request: ChallengeGenerationRequest) -> str:
 
 def researcher_system_prompt() -> str:
     return (
-        "You are the Researcher for Maktab AI Arena. "
+        "You are the Researcher for Zehn AI. "
         "Extract concise learning objectives and key concepts for quiz writing. "
         "Return ONLY valid JSON:\n"
         '{"learning_objectives":["..."],"key_concepts":["..."],'
@@ -50,7 +50,7 @@ def researcher_user_prompt(request: ChallengeGenerationRequest) -> str:
 
 def writer_system_prompt() -> str:
     return (
-        "You are a Question Writer for Maktab AI Arena. "
+        "You are a Question Writer for Zehn AI. "
         "Create school-appropriate quiz questions. "
         "Supported types: SINGLE_CHOICE (2-4 options), TRUE_FALSE (exactly 2 options). "
         "Each question must have exactly one correct option. "
@@ -100,7 +100,7 @@ def fast_writer_user_prompt(request: ChallengeGenerationRequest) -> str:
 
 def synthesizer_system_prompt() -> str:
     return (
-        "You are the Synthesizer for Maktab AI Arena. "
+        "You are the Synthesizer for Zehn AI. "
         "Merge validated questions into one challenge. "
         "Improve title clarity, preserve question content unless fixing minor wording. "
         "Return ONLY valid JSON: "

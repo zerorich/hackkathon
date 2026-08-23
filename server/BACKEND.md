@@ -1,4 +1,4 @@
-# Maktab AI Arena — Backend Run Guide
+# Zehn AI — Backend Run Guide
 
 Production backend for the hackathon MVP. API base path: `/api/v1`.
 

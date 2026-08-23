@@ -1,4 +1,4 @@
-# Maktab AI Arena — ТЗ: Muhammad Ali (Teacher/Admin — Часть B)
+# Zehn AI — ТЗ: Muhammad Ali (Teacher/Admin — Часть B)
 
 **Роль:** analytics, reporting, monitoring зона teacher/admin React app  
 **Стек:** React, Vite (то же приложение `admin/`, что у Aziz)  
