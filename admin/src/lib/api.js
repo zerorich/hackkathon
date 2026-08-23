@@ -87,6 +87,13 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  // Generic HTTP helpers
+  get: (endpoint, options) => request(endpoint, { ...options, method: 'GET' }),
+  post: (endpoint, body, options) => request(endpoint, { ...options, method: 'POST', body }),
+  put: (endpoint, body, options) => request(endpoint, { ...options, method: 'PUT', body }),
+  patch: (endpoint, body, options) => request(endpoint, { ...options, method: 'PATCH', body }),
+  delete: (endpoint, options) => request(endpoint, { ...options, method: 'DELETE' }),
+
   // Auth API
   auth: {
     requestOtp: (identifier) =>
@@ -152,6 +159,37 @@ export const api = {
       const qStr = query.toString()
       return request(`/teacher/classes/${classId}/activity${qStr ? `?${qStr}` : ''}`)
     },
+  },
+
+  // AI Chat API
+  chat: {
+    listConversations: (params = {}) => {
+      const query = new URLSearchParams()
+      if (params.limit) query.set('limit', String(params.limit))
+      if (params.offset) query.set('offset', String(params.offset))
+      const qStr = query.toString()
+      return request(`/ai/chat/conversations${qStr ? `?${qStr}` : ''}`)
+    },
+    createConversation: (title) =>
+      request('/ai/chat/conversations', {
+        method: 'POST',
+        body: { title: title || 'New Conversation' },
+      }),
+    getConversation: (conversationId) => request(`/ai/chat/conversations/${conversationId}`),
+    deleteConversation: (conversationId) =>
+      request(`/ai/chat/conversations/${conversationId}`, { method: 'DELETE' }),
+    listMessages: (conversationId, params = {}) => {
+      const query = new URLSearchParams()
+      if (params.limit) query.set('limit', String(params.limit))
+      if (params.before) query.set('before', params.before)
+      const qStr = query.toString()
+      return request(`/ai/chat/conversations/${conversationId}/messages${qStr ? `?${qStr}` : ''}`)
+    },
+    sendMessage: (conversationId, content) =>
+      request(`/ai/chat/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        body: { content },
+      }),
   },
 
   // Admin Monitoring API

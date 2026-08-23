@@ -25,7 +25,7 @@ export function ResultPage({ result, onDone, onPracticeAgain }) {
 
   const r = result || {}
   const score = r.score !== undefined ? r.score : 0
-  const accuracy = r.accuracy !== undefined ? r.accuracy : 0
+  const accuracy = r.accuracy_percent !== undefined ? r.accuracy_percent : (r.accuracy !== undefined ? r.accuracy : 0)
   const xpAwarded = r.xp_awarded !== undefined ? r.xp_awarded : 0
   const totalXp = r.total_xp || 0
   const level = r.level || 1

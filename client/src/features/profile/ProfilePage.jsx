@@ -51,11 +51,11 @@ export function ProfilePage({ onNavigate }) {
   const s = stats || {}
   const totalXp = s.total_xp || user?.total_xp || 0
   const level = s.level || user?.level || 1
-  const streak = s.streak || user?.streak || 0
+  const streak = s.current_streak !== undefined ? s.current_streak : (s.streak || user?.streak || 0)
   const bestStreak = s.best_streak || streak
-  const completedCount = s.attempts_completed || attempts.length
-  const duelsWon = s.duels_won || 0
-  const duelsLost = s.duels_lost || 0
+  const completedCount = s.completed_challenges ?? (s.attempts_completed ?? attempts.length)
+  const duelsWon = s.duel_wins ?? (s.duels_won ?? 0)
+  const duelsLost = s.duel_losses ?? (s.duels_lost ?? 0)
 
   return (
     <div style={{ maxWidth: '880px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -186,7 +186,7 @@ export function ProfilePage({ onNavigate }) {
                 {attempts.map((att) => (
                   <tr key={att.id}>
                     <td style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
-                      {att.challenge_title || 'Topic Challenge'}
+                      {att.challenge?.title || att.challenge_title || 'Topic Challenge'}
                     </td>
                     <td>
                       <Badge variant={att.status === 'COMPLETED' ? 'emerald' : 'amber'}>
@@ -197,7 +197,7 @@ export function ProfilePage({ onNavigate }) {
                       {att.score !== undefined ? `${att.score}/1000` : '—'}
                     </td>
                     <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-                      {att.accuracy !== undefined ? `${att.accuracy}%` : '—'}
+                      {att.accuracy_percent !== undefined ? `${att.accuracy_percent}%` : (att.accuracy !== undefined ? `${att.accuracy}%` : '—')}
                     </td>
                     <td style={{ fontFamily: 'var(--font-mono)', color: '#818cf8', fontWeight: '700' }}>
                       {att.xp_awarded ? `+${att.xp_awarded} XP` : '—'}

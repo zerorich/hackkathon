@@ -99,7 +99,7 @@ export function AttemptFlowPage({ attemptId, onFinish, onCancel }) {
     )
   }
 
-  const questions = attempt?.questions || []
+  const questions = attempt?.challenge?.questions || attempt?.questions || []
   const totalQuestions = questions.length
   const currentQuestion = questions[currentIndex] || {}
   const selectedOptionId = selectedAnswers[currentQuestion.id]

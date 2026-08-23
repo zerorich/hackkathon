@@ -15,7 +15,7 @@ import { useClass } from '../../stores/ClassContext'
 import { Badge } from '../../components/ui/Badge'
 import { JoinClassModal } from '../auth/JoinClassModal'
 
-export function Navbar({ currentRoute, onNavigate }) {
+export function Navbar({ currentRoute, onNavigate, onOpenChat }) {
   const { user, logout } = useAuth()
   const { classes, activeClass, selectClass } = useClass()
   const [showJoinModal, setShowJoinModal] = useState(false)
@@ -72,8 +72,31 @@ export function Navbar({ currentRoute, onNavigate }) {
           })}
         </nav>
 
-        {/* Right side widgets: Class & User */}
+        {/* Right side widgets: AI Tutor, Class & User */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* AI Tutor Chat Trigger */}
+          <button
+            onClick={onOpenChat}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-full)',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%)',
+              border: '1px solid rgba(99, 102, 241, 0.4)',
+              color: '#c7d2fe',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 0 12px rgba(99, 102, 241, 0.25)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <span>AI Tutor</span>
+          </button>
+
           {/* Class pill */}
           {classes.length > 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

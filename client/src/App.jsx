@@ -14,11 +14,13 @@ import { DuelsPage } from './features/duels/DuelsPage'
 import { DuelAcceptPage } from './features/duels/DuelAcceptPage'
 import { LeaderboardPage } from './features/leaderboard/LeaderboardPage'
 import { ProfilePage } from './features/profile/ProfilePage'
+import { AiChatModal } from './features/chat/AiChatModal'
 import { Loader2 } from 'lucide-react'
 
 function StudentApp() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const [currentRoute, setCurrentRoute] = useState('dashboard')
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   // Practice modal state
   const [practiceTopic, setPracticeTopic] = useState(null) // { id, title, challengeId }
@@ -152,7 +154,7 @@ function StudentApp() {
   return (
     <div className="app-container">
       {/* Top Navigation */}
-      <Navbar currentRoute={currentRoute} onNavigate={navigateTo} />
+      <Navbar currentRoute={currentRoute} onNavigate={navigateTo} onOpenChat={() => setIsChatOpen(true)} />
 
       {/* Main Content Area */}
       <main className="main-content">{renderPage()}</main>
@@ -161,6 +163,9 @@ function StudentApp() {
       {user && !user.onboarding_completed && (
         <OnboardingModal isOpen={true} onClose={() => {}} />
       )}
+
+      {/* AI Tutor Chat Modal */}
+      <AiChatModal isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
 
       {/* Challenge practice generator modal */}
       {practiceTopic && (

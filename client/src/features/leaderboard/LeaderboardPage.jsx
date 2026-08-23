@@ -140,7 +140,7 @@ export function LeaderboardPage() {
                       {item.user?.display_name || 'Champion'} {isCur && '(You)'}
                     </h3>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                      Level {item.user?.level || 1} • Streak {item.current_streak || 0}d
+                      Level {item.user?.level || 1} • Streak {item.streak !== undefined ? item.streak : (item.current_streak || 0)}d
                     </div>
                     <div style={{ fontSize: '1.4rem', fontWeight: '800', color: col.text, fontFamily: 'var(--font-mono)' }}>
                       {period === 'week' && item.period_xp !== undefined ? item.period_xp : item.total_xp} XP
@@ -217,11 +217,11 @@ export function LeaderboardPage() {
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24', fontWeight: '700', fontSize: '0.85rem' }}>
                             <Flame className="w-3.5 h-3.5" />
-                            {entry.current_streak || 0}d
+                            {entry.streak !== undefined ? entry.streak : (entry.current_streak || 0)}d
                           </div>
                         </td>
                         <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontFamily: 'var(--font-mono)' }}>
-                          {entry.completed_challenges || 0}
+                          {entry.completed_attempts !== undefined ? entry.completed_attempts : (entry.completed_challenges || 0)}
                         </td>
                         <td>
                           <span style={{ fontWeight: '800', color: '#38bdf8', fontFamily: 'var(--font-mono)', fontSize: '0.95rem' }}>

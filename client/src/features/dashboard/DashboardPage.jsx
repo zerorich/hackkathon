@@ -62,10 +62,10 @@ export function DashboardPage({ onNavigate, onStartPractice }) {
   const profile = d.profile || user || {}
   const totalXp = d.total_xp || profile.total_xp || 0
   const level = d.level || profile.level || 1
-  const currentStreak = d.current_streak || profile.streak || 0
-  const currentLevelXp = d.current_level_xp || (totalXp % 500)
-  const nextLevelXp = d.next_level_xp || 500
-  const xpPercent = Math.min(100, Math.round((currentLevelXp / nextLevelXp) * 100))
+  const currentStreak = d.streak !== undefined ? d.streak : (d.current_streak || profile.streak || 0)
+  const currentLevelXp = d.level_progress?.current_level_xp ?? (d.current_level_xp || (totalXp % 500))
+  const nextLevelXp = d.level_progress?.next_level_xp ?? (d.next_level_xp || 500)
+  const xpPercent = Math.min(100, Math.round((currentLevelXp / (nextLevelXp || 1)) * 100))
   const recommended = d.recommended_topic
   const subjects = d.subjects || []
   const leaderboardPreview = d.leaderboard_preview || {}
@@ -226,7 +226,8 @@ export function DashboardPage({ onNavigate, onStartPractice }) {
                 </h3>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                   {recommended.subject_name ? `Subject: ${recommended.subject_name}` : 'Core Curriculum Topic'}
-                  {recommended.mastery !== undefined && ` • Mastery: ${recommended.mastery}%`}
+                  {(recommended.mastery_percent !== undefined || recommended.mastery !== undefined) &&
+                    ` • Mastery: ${recommended.mastery_percent ?? recommended.mastery}%`}
                 </div>
               </div>
 
@@ -234,13 +235,13 @@ export function DashboardPage({ onNavigate, onStartPractice }) {
                 <Button
                   variant="cyan"
                   icon={Play}
-                  onClick={() => onStartPractice(recommended.id, recommended.title)}
+                  onClick={() => onStartPractice(recommended.topic_id || recommended.id, recommended.title)}
                 >
                   Start AI Practice (5 Qs)
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={() => onNavigate(`subjects-topic-${recommended.id}`)}
+                  onClick={() => onNavigate(`subjects-topic-${recommended.topic_id || recommended.id}`)}
                 >
                   Topic Details →
                 </Button>

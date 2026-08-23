@@ -120,14 +120,14 @@ export function DuelAcceptPage({ shareCode, onStartAttempt, onBack }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Challenger:</span>
             <span style={{ fontSize: '0.88rem', fontWeight: '700', color: '#818cf8' }}>
-              {duel.creator_display_name || 'Classmate'}
+              {duel.challenger?.display_name || duel.creator_display_name || 'Classmate'}
             </span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Topic:</span>
             <span style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-              {duel.challenge_title || 'AI Challenge'}
+              {duel.topic_title || duel.challenge_title || 'AI Challenge'}
             </span>
           </div>
 

@@ -31,7 +31,7 @@ export function DuelsPage({ onNavigate, onAcceptDuel }) {
     setLoading(true)
     try {
       const res = await api.get('/me/duels')
-      setDuels(Array.isArray(res) ? res : res.duels || [])
+      setDuels(res.items || (Array.isArray(res) ? res : res.duels || []))
     } catch (err) {
       console.error(err)
     } finally {
@@ -152,9 +152,13 @@ export function DuelsPage({ onNavigate, onAcceptDuel }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
           {filteredDuels.map((duel) => {
             const isCompleted = duel.status === 'COMPLETED'
-            const isWinner = duel.winner_user_id === user?.id
-            const isDraw = duel.winner_user_id === 'DRAW'
-            const isCreator = duel.creator_user_id === user?.id
+            const isWinner =
+              duel.winner_id === user?.id ||
+              duel.winner_user_id === user?.id ||
+              (duel.is_challenger && duel.result_type === 'CREATOR_WIN') ||
+              (!duel.is_challenger && duel.result_type === 'OPPONENT_WIN')
+            const isDraw = duel.result_type === 'DRAW' || duel.winner_id === 'DRAW' || duel.winner_user_id === 'DRAW'
+            const isCreator = duel.is_challenger ?? (duel.creator_id === user?.id || duel.creator_user_id === user?.id)
 
             return (
               <Card

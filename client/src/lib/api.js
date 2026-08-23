@@ -115,6 +115,31 @@ class ApiClient {
   delete(path) {
     return this.request(path, { method: 'DELETE' })
   }
+
+  // AI Chat Helpers
+  chat = {
+    listConversations: (params = {}) => {
+      const query = new URLSearchParams()
+      if (params.limit) query.set('limit', String(params.limit))
+      if (params.offset) query.set('offset', String(params.offset))
+      const qStr = query.toString()
+      return this.get(`/ai/chat/conversations${qStr ? `?${qStr}` : ''}`)
+    },
+    createConversation: (title) =>
+      this.post('/ai/chat/conversations', { title: title || 'AI Tutor Chat' }),
+    getConversation: (conversationId) => this.get(`/ai/chat/conversations/${conversationId}`),
+    deleteConversation: (conversationId) =>
+      this.delete(`/ai/chat/conversations/${conversationId}`),
+    listMessages: (conversationId, params = {}) => {
+      const query = new URLSearchParams()
+      if (params.limit) query.set('limit', String(params.limit))
+      if (params.before) query.set('before', params.before)
+      const qStr = query.toString()
+      return this.get(`/ai/chat/conversations/${conversationId}/messages${qStr ? `?${qStr}` : ''}`)
+    },
+    sendMessage: (conversationId, content) =>
+      this.post(`/ai/chat/conversations/${conversationId}/messages`, { content }),
+  }
 }
 
 export const api = new ApiClient()
