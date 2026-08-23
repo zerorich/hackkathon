@@ -21,6 +21,7 @@ from server.core.enums import (
     XpSourceType,
 )
 from server.core.settings import get_settings
+from server.core.security import hash_password
 from server.db.session import get_session_factory
 from server.models.entities import (
     ActivityEvent,
@@ -51,6 +52,8 @@ from server.services.calculations import (
     calculate_topic_mastery,
     to_local_date,
 )
+
+DEMO_PASSWORD = "123456"
 
 
 async def run_seed(session: AsyncSession | None = None) -> dict:
@@ -564,8 +567,17 @@ async def _get_or_create_user(
     result = await session.execute(select(User).where(User.identifier == identifier))
     user = result.scalar_one_or_none()
     if user:
+        if not user.password_hash:
+            user.password_hash = hash_password(DEMO_PASSWORD)
+            await session.flush()
         return user
-    user = User(identifier=identifier, display_name=name, role=role, onboarding_completed=True)
+    user = User(
+        identifier=identifier,
+        display_name=name,
+        role=role,
+        onboarding_completed=True,
+        password_hash=hash_password(DEMO_PASSWORD),
+    )
     session.add(user)
     await session.flush()
     return user

@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from server.ai.fixtures import get_fixture
 from server.ai.validator import validate_ai_challenge_output
 from server.core.enums import AttemptStatus
+from server.core.security import verify_password
 from server.core.settings import clear_settings_cache
 from server.models.entities import (
     ActivityEvent,
@@ -19,6 +20,7 @@ from server.models.entities import (
     Subject,
     Topic,
     TopicProgress,
+    User,
     XpLedger,
 )
 from server.seed.demo import run_seed
@@ -26,7 +28,7 @@ from server.services.orchestrator import get_orchestrator
 
 
 @pytest.mark.asyncio
-async def test_demo_seed_populates_presentation_dataset(session_factory):
+async def test_demo_seed_populates_presentation_dataset(session_factory, client: AsyncClient):
     async with session_factory() as session:
         result = await run_seed(session)
         await session.commit()
@@ -84,6 +86,38 @@ async def test_demo_seed_populates_presentation_dataset(session_factory):
         assert progress
         assert any(row.mastery_category == "WEAK" for row in progress)
         assert activities >= 15
+
+        demo_users = (
+            (
+                await session.execute(
+                    select(User).where(
+                        User.identifier.in_(
+                            [
+                                "admin@demo.local",
+                                "teacher@demo.local",
+                                *[f"student{i}@demo.local" for i in range(1, 6)],
+                            ]
+                        )
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(demo_users) == 7
+        assert all(verify_password("123456", user.password_hash) for user in demo_users)
+
+    for identifier in (
+        "admin@demo.local",
+        "teacher@demo.local",
+        *[f"student{i}@demo.local" for i in range(1, 6)],
+    ):
+        logged_in = await client.post(
+            "/api/v1/auth/login",
+            json={"identifier": identifier, "password": "123456"},
+        )
+        assert logged_in.status_code == 200
+        assert logged_in.json()["data"]["user"]["identifier"] == identifier
 
     # The seed is safe to run again and must not duplicate presentation attempts.
     async with session_factory() as session:
